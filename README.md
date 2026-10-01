@@ -1,5 +1,5 @@
 # Mohammed Nisamvirli.github.io
-Hello there! I'm Mohammed Nisam, frontend engineer by profession, a creative at heart.
+Hello there! I'm Mohammed Nisam, Frontend Developer & UI/UX Designer by profession, a creative at heart.
 
 This is the updated version of my personal website which is now in 3D. LFG!
 

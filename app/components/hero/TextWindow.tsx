@@ -32,7 +32,7 @@ const TextWindow = () => {
         {...fontProps}
         scale={[1, -1, 1]}
         rotation={[0, 0,  -Math.PI / 2]}>
-        FRONTEND ENGINEER
+        FRONTEND DEVELOPER & UI/UX DESIGNER
       </Text>
 
       <Text color="white" anchorX="right" anchorY="middle"
