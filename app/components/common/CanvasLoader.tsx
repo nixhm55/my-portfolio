@@ -4,7 +4,7 @@ import { useGSAP } from "@gsap/react";
 import { AdaptiveDpr, Preload, ScrollControls, useProgress } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import gsap from "gsap";
-import { Suspense, useRef, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useRef, useSyncExternalStore } from "react";
 import { isMobile } from "react-device-detect";
 
 import { useThemeStore } from "@stores";
@@ -17,11 +17,32 @@ import ThemeSwitcher from "./ThemeSwitcher";
 // import {Perf} from "r3f-perf"
 
 const CanvasLoader = (props: { children: React.ReactNode }) => {
-  const ref= useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const backgroundColor = useThemeStore((state) => state.theme.color);
   const { progress } = useProgress();
   const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
+
+  // തീം മാറുമ്പോൾ Safari-യുടെ ടോപ്പ് ബാറും ഒപ്പം മാറാൻ
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      document.body.style.backgroundColor = backgroundColor;
+
+      let meta = document.querySelector('meta[name="theme-color"]');
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('name', 'theme-color');
+        document.head.appendChild(meta);
+      }
+
+      // Safari ബാർ ഡാർക്ക് മോഡിൽ ഡിം ആകുന്നതുകൊണ്ട്, ലൈറ്റ് ബ്ലൂ വരുമ്പോൾ
+      // അതിലേക്ക് കുറച്ചുകൂടി ബ്രൈറ്റ് ആയ ബ്ലൂ നൽകുന്നു (ഇതോടെ രണ്ടും ഒരേ ലൈറ്റ് ബ്ലൂ ആയി മാറും)
+      const isLightMode = backgroundColor !== '#0a0a0a' && backgroundColor !== '#010101' && backgroundColor !== '#000000';
+      const safariColor = isLightMode ? '#62c9fa' : backgroundColor;
+
+      meta.setAttribute('content', safariColor);
+    }
+  }, [backgroundColor]);
 
   const canvasStyle: React.CSSProperties = {
     position: "absolute",
