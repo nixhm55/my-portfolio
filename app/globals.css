@@ -9,12 +9,12 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #330d0d;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #2c060d;
     --foreground: #ededed;
   }
 }
@@ -78,7 +78,7 @@ body {
   content: ' ';
   height: 48px;
   width: 2px;
-  background-color: #0a0a0a;
+  background-color: #2b060a;
 }
 
 .close:before {

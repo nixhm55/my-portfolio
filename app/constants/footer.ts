@@ -29,6 +29,6 @@ export const FOOTER_LINKS: FooterLink[] = [
     name: 'Resume',
     hoverText: 'Download',
     icon: 'icons/file.svg',
-    url: './Mohammmed Nisam - Resume.pdf',
+    url: './Mohammed Nisam - Resume.pdf',
   }
 ];

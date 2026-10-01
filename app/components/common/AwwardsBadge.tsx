@@ -71,7 +71,7 @@ const AwwardsBadge = () => {
         right: -100,
       }}
     >
-      <a href="https://www.awwwards.com/sites/Mohammmed Nisam-virlis-portfolio" target="_blank">
+      <a href="https://www.awwwards.com/sites/Mohammed Nisam-virlis-portfolio" target="_blank">
         <svg width="53.08" height="171.358">
           <path className="js-color-bg" fill="white" d="M0 0h53.08v171.358H0z"></path>
           <g className="js-color-text" fill={color} ref={fillRef}>

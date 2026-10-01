@@ -15,12 +15,12 @@ const vercettiFont = localFont({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://example.com/'),
-  title: "Mohammmed Nisam ✌️",
+  title: "Mohammed Nisam ✌️",
   description: "A frontend developer by profession, a creative at heart.",
-  keywords: "Mohammmed Nisam, Frontend Engineer, React Developer, Three.js, Creative Developer, Web Development, Angular, JavaScript, TypeScript, Portfolio",
-  authors: [{ name: "Mohammmed Nisam" }],
-  creator: "Mohammmed Nisam",
-  publisher: "Mohammmed Nisam",
+  keywords: "Mohammed Nisam, Frontend Engineer, React Developer, Three.js, Creative Developer, Web Development, Angular, JavaScript, TypeScript, Portfolio",
+  authors: [{ name: "Mohammed Nisam" }],
+  creator: "Mohammed Nisam",
+  publisher: "Mohammed Nisam",
   formatDetection: {
     email: false,
     address: false,
@@ -37,15 +37,15 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "Mohammmed Nisam - Frontend Engineer",
+    title: "Mohammed Nisam - Frontend Engineer",
     description: "Frontend engineer by profession, creative at heart.",
-    siteName: "Mohammmed Nisam's Portfolio",
+    siteName: "Mohammed Nisam's Portfolio",
     locale: "en_US",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Mohammmed Nisam - Frontend Engineer",
+    title: "Mohammed Nisam - Frontend Engineer",
     description: "Frontend engineer by profession, creative at heart.",
   },
   verification: {
