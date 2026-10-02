@@ -14,6 +14,7 @@ export const WORK_TIMELINE: WorkTimelinePoint[] = [
     year: '2024',
     title: 'GHSS KAKKAT',
     subtitle: 'Plus One',
+    certificate: '/certificate',
     position: 'left',
   },
   {
