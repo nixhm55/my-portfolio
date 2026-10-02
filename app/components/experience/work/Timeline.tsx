@@ -19,6 +19,39 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
   const [isHovered, setIsHovered] = useState(false);
   const openCertificate = useCertificateStore((state) => state.openCertificate);
 
+  // Check if this timeline point is Plus One or Plus Two
+  const hasCertificate = Boolean(
+    point.certificate ||
+    point.subtitle?.toLowerCase().includes('plus') ||
+    point.subtitle?.toLowerCase().includes('two') ||
+    point.subtitle?.toLowerCase().includes('one') ||
+    String(point.year).includes('2024') ||
+    String(point.year).includes('2025')
+  );
+
+  // Directly and safely assign the correct certificate image path
+  const certificatePath = useMemo(() => {
+    const sub = (point.subtitle || '').toLowerCase();
+    const yr = String(point.year || '');
+
+    // 1. Plus Two check
+    if (sub.includes('two') || yr.includes('2025')) {
+      return '/plus-two-certificate.jpg';
+    }
+
+    // 2. Plus One check
+    if (sub.includes('one') || yr.includes('2024')) {
+      return '/my-certificate.jpg';
+    }
+
+    // 3. Fallback
+    if (typeof point.certificate === 'string' && point.certificate.trim() !== '') {
+      return point.certificate;
+    }
+
+    return '/my-certificate.jpg';
+  }, [point]);
+
   const getPoint = useMemo(() => {
     switch (point.position) {
       case 'left': return reusableLeft;
@@ -44,7 +77,7 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
   }), [textProps]);
 
   useEffect(() => {
-    if (!point.certificate) return;
+    if (!hasCertificate) return;
 
     const checkHit = (clientX: number, clientY: number) => {
       if (!certGroupRef.current) return false;
@@ -73,7 +106,7 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
       const clientY = 'clientY' in e ? e.clientY : e.touches[0].clientY;
 
       if (checkHit(clientX, clientY)) {
-        openCertificate();
+        openCertificate(certificatePath);
       }
     };
 
@@ -97,7 +130,7 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
       window.removeEventListener('pointermove', onPointerMove);
       document.body.style.cursor = 'auto';
     };
-  }, [camera, raycaster, point.certificate, openCertificate]);
+  }, [camera, raycaster, hasCertificate, certificatePath, openCertificate]);
 
   return (
     <group position={point.point} scale={isMobile ? 0.35 : 0.6}>
@@ -118,7 +151,7 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
               {point.subtitle}
             </Text>
 
-            {point.certificate && (
+            {hasCertificate && (
               <group ref={certGroupRef} position={[0, -0.68 - diff, 0]}>
                 <Text
                   {...textProps}

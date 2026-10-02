@@ -1,12 +1,46 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useCertificateStore } from '../stores/certificate';
 
 export default function CertificateModal() {
-  const { isOpen, closeCertificate } = useCertificateStore();
+  const { isOpen, closeCertificate, certificateImage } = useCertificateStore();
+  const [isClosing, setIsClosing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsClosing(false);
+    }
+  }, [isOpen]);
+
+  const handleClose = () => {
+    if (closeTimerRef.current) return;
+    setIsClosing(true);
+
+    const canvas = containerRef.current?.querySelector('canvas');
+    if (canvas) {
+      canvas.classList.remove('certificate-modal-opening');
+      canvas.classList.add('certificate-modal-closing');
+    }
+
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      setIsClosing(false);
+      closeCertificate();
+    }, 400);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen || !containerRef.current) return;
@@ -23,6 +57,7 @@ export default function CertificateModal() {
     canvas.style.height = '100%';
     canvas.style.zIndex = '3';
     canvas.style.pointerEvents = 'none';
+    canvas.classList.add('certificate-modal-opening');
     containerRef.current.appendChild(canvas);
 
     const renderer = new T.WebGLRenderer({
@@ -89,10 +124,83 @@ export default function CertificateModal() {
     scene.add(touchLight);
 
     const SW = 2.30, SH = 3.23;
-    const geo = new T.PlaneGeometry(SW, SH, 32, 32);
+    const geo = new T.PlaneGeometry(SW, SH, 72, 96);
+
+    const uni = {
+      uTime: { value: 0 },
+      uAmp: { value: 1.18 },
+      uFreq: { value: 4.7 },
+      uTwist: { value: 1.3 },
+      uSize: { value: new T.Vector2(SW, SH) },
+      uFlutter: { value: 0 },
+      uPhase: { value: 0 },
+      uRim: { value: 0.62 },
+      uRimA: { value: 0.88 },
+      uSpecA: { value: 0.14 },
+      uRimCol: { value: new T.Color(0xeaf2ff) }
+    };
+
+    const WAVE = `
+      uniform float uTime, uAmp, uFlutter, uPhase, uFreq, uTwist;
+      uniform vec2  uSize;
+
+      float sAmp(float u, float v){ return uAmp*(0.10 + pow(u,1.35))*(0.50 + 0.64*v); }
+      float sAmpV(float u){ return uAmp*(0.10 + pow(u,1.35))*0.64; }
+
+      float sTheta(float u, float v){
+        float a  = sAmp(u,v);
+        float ph = uFreq*u + uTwist*v + uTime*0.40 + uPhase;
+        return a*sin(ph) + uFlutter*a*0.60*sin(ph*2.35 + uTime*2.0);
+      }
+      float sThetaV(float u, float v){
+        float a  = sAmp(u,v), da = sAmpV(u);
+        float ph = uFreq*u + uTwist*v + uTime*0.40 + uPhase;
+        float f  = ph*2.35 + uTime*2.0;
+        return da*sin(ph) + a*cos(ph)*uTwist + uFlutter*0.60*(da*sin(f) + a*cos(f)*uTwist*2.35);
+      }
+      float sYoff(float u, float v){
+        float w = 1.0 - 0.55*v;
+        return 0.021*uSize.y*sin(2.05*u + uTime*0.47 + uPhase)
+             + 0.013*uSize.y*sin(3.35*u - 1.55*v + uTime*0.63 + uPhase)*w;
+      }
+      float sYdU(float u, float v){
+        float w = 1.0 - 0.55*v;
+        return 0.0431*uSize.y*cos(2.05*u + uTime*0.47 + uPhase)
+             + 0.0436*uSize.y*cos(3.35*u - 1.55*v + uTime*0.63 + uPhase)*w;
+      }
+      float sYdV(float u, float v){
+        float ph = 3.35*u - 1.55*v + uTime*0.63 + uPhase;
+        return 0.013*uSize.y*(-1.55*cos(ph)*(1.0-0.55*v) - 0.55*sin(ph));
+      }
+
+      void sheetPoint(vec2 q, out vec3 P, out vec3 NN){
+        float u = q.x, v = q.y;
+        float x=0.0, z=0.0, xe=0.0, ze=0.0, dxv=0.0, dzv=0.0, dxe=0.0, dze=0.0;
+        const int NS = 20;
+        float h = 1.0/float(NS);
+        for(int i=0;i<NS;i++){
+          float uu = (float(i)+0.5)*h;
+          float w  = clamp((u-(uu-0.5*h))/h, 0.0, 1.0);
+          float th = sTheta(uu,v);
+          float dt = sThetaV(uu,v);
+          float c = cos(th), sn = sin(th);
+          xe += c*h;          ze += sn*h;
+          dxe += -sn*dt*h;    dze +=  c*dt*h;
+          x   += c*h*w;       z   += sn*h*w;
+          dxv += -sn*dt*h*w;  dzv +=  c*dt*h*w;
+        }
+        float W = uSize.x, H = uSize.y;
+        float th0 = sTheta(u,v);
+        P = vec3((x - xe*0.5)*W, (v-0.5)*H + sYoff(u,v), (z - ze*0.5)*W);
+        vec3 Tu = vec3(W*cos(th0), sYdU(u,v), W*sin(th0));
+        vec3 Tv = vec3((dxv - dxe*0.5)*W, H + sYdV(u,v), (dzv - dze*0.5)*W);
+        NN = normalize(cross(Tu, Tv));
+      }
+    `;
 
     const texLoader = new T.TextureLoader();
-    const certTex = texLoader.load('/my-certificate.jpg', () => {
+    const imagePath = certificateImage || '/my-certificate.jpg';
+    const certTex = texLoader.load(imagePath, () => {
       certTex.colorSpace = (T as any).SRGBColorSpace || (T as any).sRGBEncoding;
       certTex.anisotropy = 8;
       certTex.needsUpdate = true;
@@ -113,8 +221,34 @@ export default function CertificateModal() {
       specularIntensity: 1.0,
       ior: 1.5,
       transparent: true,
-      opacity: 0
+      alphaTest: 0.012,
+      opacity: 1
     });
+
+    mat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, uni);
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\n' + WAVE)
+        .replace('#include <beginnormal_vertex>', `
+          vec3 sheetP; vec3 objectNormal;
+          sheetPoint(uv, sheetP, objectNormal);
+          #ifdef USE_TANGENT
+            vec3 objectTangent = vec3( tangent.xyz );
+          #endif
+        `)
+        .replace('#include <begin_vertex>', 'vec3 transformed = sheetP;');
+
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform float uRim, uRimA, uSpecA;\nuniform vec3 uRimCol;')
+        .replace('#include <alphatest_fragment>', 'if ( diffuseColor.a / max(opacity,1e-4) < alphaTest ) discard;')
+        .replace('#include <output_fragment>', `
+          float fres = pow(1.0 - clamp(abs(dot(geometry.normal, geometry.viewDir)),0.0,1.0), 3.2);
+          outgoingLight += fres * uRim * uRimCol;
+          float baseA = diffuseColor.a / max(opacity, 1e-4);
+          float outA  = clamp(baseA + fres*uRimA + uSpecA*dot(outgoingLight, vec3(0.3333)), 0.0, 1.0) * opacity;
+          gl_FragColor = vec4( outgoingLight, outA );
+        `);
+    };
 
     const mesh = new T.Mesh(geo, mat);
     const group = new T.Group();
@@ -137,7 +271,7 @@ export default function CertificateModal() {
     })();
     const halo = new T.Mesh(
       new T.PlaneGeometry(3.9, 4.9),
-      new T.MeshBasicMaterial({ map: haloTex, transparent: true, depthWrite: false, opacity: 0 })
+      new T.MeshBasicMaterial({ map: haloTex, transparent: true, depthWrite: false, opacity: 0.3 })
     );
     halo.position.z = -0.62;
     group.add(halo);
@@ -145,19 +279,44 @@ export default function CertificateModal() {
     let dragging = false, dragYaw = 0, dragPitch = 0, release = 0;
     let velYaw = 0, velPitch = 0, prevYaw = 0, prevPitch = 0;
     let lastPX = 0, lastPY = 0, overSheet = false, hover = 0, hoverTarget = 0;
-    let cursorNow = '';
+    let quad: [number, number][] | null = null, cursorNow = '';
     const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
     const _v = new T.Vector3();
 
-    function checkHit(px: number, py: number) {
+    function cornerPoint(qx: number, qy: number) {
+      const t = uni.uTime.value, ph = uni.uPhase.value;
+      const A = uni.uAmp.value, F = uni.uFreq.value, TWs = uni.uTwist.value;
+      const u = qx, v = qy;
+      const theta = (uu: number) =>
+        A * (0.1 + Math.pow(uu, 1.35)) * (0.5 + 0.64 * v) * Math.sin(F * uu + TWs * v + t * 0.4 + ph);
+      let x = 0, z = 0, xe = 0, ze = 0;
+      const N = 20, h = 1 / N;
+      for (let i = 0; i < N; i++) {
+        const uu = (i + 0.5) * h, w = clamp((u - (uu - 0.5 * h)) / h, 0, 1);
+        const th = theta(uu), c = Math.cos(th), s = Math.sin(th);
+        xe += c * h; ze += s * h; x += c * h * w; z += s * h * w;
+      }
+      const yo = 0.021 * SH * Math.sin(2.05 * u + t * 0.47 + ph)
+               + 0.013 * SH * Math.sin(3.35 * u - 1.55 * v + t * 0.63 + ph) * (1 - 0.55 * v);
+      return _v.set((x - xe * 0.5) * SW, (v - 0.5) * SH + yo, (z - ze * 0.5) * SW);
+    }
+
+    function buildQuad() {
       const pts: [number, number][] = [];
       for (const [u, v] of [[0, 1], [1, 1], [1, 0], [0, 0]]) {
-        _v.set((u - 0.5) * SW, (v - 0.5) * SH, 0).applyMatrix4(group.matrixWorld).project(camera);
+        cornerPoint(u, v).applyMatrix4(group.matrixWorld).project(camera);
         pts.push([(_v.x * 0.5 + 0.5) * containerRef.current!.clientWidth, (-_v.y * 0.5 + 0.5) * containerRef.current!.clientHeight]);
       }
+      const cx = (pts[0][0] + pts[1][0] + pts[2][0] + pts[3][0]) / 4;
+      const cy = (pts[0][1] + pts[1][1] + pts[2][1] + pts[3][1]) / 4;
+      quad = pts.map(([x, y]) => [cx + (x - cx) * 1.07, cy + (y - cy) * 1.07]);
+    }
+
+    function inQuad(px: number, py: number) {
+      if (!quad) return false;
       let sign = 0;
       for (let i = 0; i < 4; i++) {
-        const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % 4];
+        const [ax, ay] = quad[i], [bx, by] = quad[(i + 1) % 4];
         const c = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
         if (c !== 0) {
           const s = c > 0 ? 1 : -1;
@@ -180,13 +339,13 @@ export default function CertificateModal() {
         dragPitch = clamp(dragPitch - dy * 0.0045, -0.6, 0.6);
         return;
       }
-      overSheet = checkHit(x, y);
+      overSheet = inQuad(x, y);
       hoverTarget = overSheet ? 1 : 0;
     };
 
     const onPointerDown = (e: PointerEvent) => {
       const rect = containerRef.current!.getBoundingClientRect();
-      if (checkHit(e.clientX - rect.left, e.clientY - rect.top)) {
+      if (inQuad(e.clientX - rect.left, e.clientY - rect.top)) {
         dragging = true;
         lastPX = e.clientX; lastPY = e.clientY;
         velYaw = velPitch = 0;
@@ -210,6 +369,10 @@ export default function CertificateModal() {
       renderer.setSize(vw, vh, false);
       camera.aspect = vw / vh;
       camera.updateProjectionMatrix();
+      const visH = 2 * camera.position.z * Math.tan(T.MathUtils.degToRad(camera.fov) / 2);
+      const visW = visH * camera.aspect;
+      const wCap = Math.min(0.88, 0.6 + Math.max(0, 1.45 - camera.aspect) * 0.45);
+      group.scale.setScalar(Math.min(visH * 0.735 / SH, visW * wCap / SW));
     }
     window.addEventListener('resize', resize);
     resize();
@@ -223,8 +386,9 @@ export default function CertificateModal() {
       animId = requestAnimationFrame(frame);
       const dt = Math.min(clock.getDelta(), 0.05);
       const t = clock.elapsedTime;
+      uni.uTime.value = REDUCED ? 2.4 : t;
 
-      intro += (1 - intro) * Math.min(1, dt * 4.0);
+      intro += (1 - intro) * Math.min(1, dt * 2.5);
       mat.opacity = intro;
       halo.material.opacity = intro * 0.3;
 
@@ -258,14 +422,6 @@ export default function CertificateModal() {
       group.rotation.z = Math.sin(t * 0.27) * 0.018 * idle;
       group.position.y = Math.sin(t * 0.36) * 0.06 * idle;
       group.position.x = Math.sin(t * 0.21) * 0.05 * idle + mouse.x * 0.1;
-
-      const visH = 2 * camera.position.z * Math.tan(T.MathUtils.degToRad(camera.fov) / 2);
-      const visW = visH * camera.aspect;
-      const wCap = Math.min(0.88, 0.6 + Math.max(0, 1.45 - camera.aspect) * 0.45);
-      const baseScale = Math.min(visH * 0.735 / SH, visW * wCap / SW);
-      const currentScale = baseScale * (0.8 + 0.2 * intro);
-      group.scale.setScalar(currentScale);
-
       group.updateMatrixWorld();
 
       hover += (hoverTarget - hover) * Math.min(1, dt * 4.5);
@@ -275,6 +431,7 @@ export default function CertificateModal() {
         touchLight.position.copy(camera.position).addScaledVector(lightPos, (1.75 - camera.position.z) / lightPos.z);
       }
 
+      buildQuad();
       const wantCursor = dragging ? 'grabbing' : overSheet ? 'grab' : 'default';
       if (wantCursor !== cursorNow) {
         cursorNow = wantCursor;
@@ -294,11 +451,14 @@ export default function CertificateModal() {
         el.removeEventListener('pointerdown', onPointerDown);
       }
       window.removeEventListener('pointerup', onPointerUp);
+      if (canvas && canvas.parentNode) {
+        canvas.parentNode.removeChild(canvas);
+      }
       renderer.dispose();
       geo.dispose();
       mat.dispose();
     };
-  }, [isOpen]);
+  }, [isOpen, certificateImage]);
 
   if (!isOpen) return null;
 
@@ -315,9 +475,63 @@ export default function CertificateModal() {
         alignItems: 'center',
         justifyContent: 'center',
       }}
+      className={isClosing ? 'certificate-glass-closing' : 'certificate-glass-opening'}
     >
+      <style>{`
+        .certificate-glass-opening {
+          animation: certificateGlassOpen 1950ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          will-change: opacity;
+        }
+
+        .certificate-glass-closing {
+          animation: certificateGlassClose 400ms cubic-bezier(0.4, 0, 0.6, 1) both;
+          will-change: opacity;
+          pointer-events: none !important;
+        }
+
+        .certificate-modal-opening {
+          animation: certificateModalOpen 1950ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          will-change: transform, opacity;
+        }
+
+        .certificate-modal-closing {
+          animation: certificateModalClose 400ms cubic-bezier(0.4, 0, 0.6, 1) both;
+          will-change: transform, opacity;
+          pointer-events: none !important;
+        }
+
+        @keyframes certificateGlassOpen {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes certificateGlassClose {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+
+        @keyframes certificateModalOpen {
+          from { opacity: 0; transform: translate3d(0, 42px, 0); }
+          to { opacity: 1; transform: translate3d(0, 0, 0); }
+        }
+
+        @keyframes certificateModalClose {
+          from { opacity: 1; transform: translate3d(0, 0, 0); }
+          to { opacity: 0; transform: translate3d(0, 42px, 0); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .certificate-glass-opening,
+          .certificate-glass-closing,
+          .certificate-modal-opening,
+          .certificate-modal-closing {
+            animation-duration: 1ms;
+          }
+        }
+      `}</style>
+
       <button
-        onClick={closeCertificate}
+        onClick={handleClose}
         style={{
           position: 'fixed',
           top: '28px',
