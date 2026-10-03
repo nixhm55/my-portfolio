@@ -8,6 +8,7 @@ import { Suspense, useEffect, useRef, useSyncExternalStore } from "react";
 import { isMobile } from "react-device-detect";
 
 import { useThemeStore } from "@stores";
+import { useCertificateStore } from "../../stores/certificate";
 
 import AwwardsBadge from "./AwwardsBadge";
 import Preloader from "./Preloader";
@@ -23,6 +24,7 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
   const ref = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const backgroundColor = useThemeStore((state) => state.theme.color);
+  const isCertOpen = useCertificateStore((state) => state.isOpen);
   const { progress } = useProgress();
   const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
 
@@ -93,6 +95,7 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
           className="base-canvas"
           style={canvasStyle}
           ref={canvasRef}
+          frameloop={isCertOpen ? 'never' : 'always'}
           dpr={[1, 1.5]}
           gl={{ powerPreference: 'high-performance', antialias: false }}
         >

@@ -4,6 +4,32 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useCertificateStore } from '../stores/certificate';
 
+// Ultra-lightweight Audio Manager
+class SoundManager {
+  private popAudio: HTMLAudioElement | null = null;
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      this.popAudio = new Audio('/sfx/pop.wav');
+      this.popAudio.preload = 'auto';
+    }
+  }
+
+  playPop() {
+    if (!this.popAudio) return;
+    try {
+      this.popAudio.currentTime = 0;
+      this.popAudio.volume = 0.85;
+      const playPromise = this.popAudio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {});
+      }
+    } catch {}
+  }
+}
+
+const sounds = new SoundManager();
+
 export default function CertificateModal() {
   const { isOpen, closeCertificate, certificateImage } = useCertificateStore();
   const [isClosing, setIsClosing] = useState(false);
@@ -13,6 +39,7 @@ export default function CertificateModal() {
   useEffect(() => {
     if (isOpen) {
       setIsClosing(false);
+      sounds.playPop();
     }
   }, [isOpen]);
 
@@ -109,7 +136,9 @@ export default function CertificateModal() {
 
     const pmrem = new T.PMREMGenerator(renderer);
     pmrem.compileEquirectangularShader();
-    scene.environment = pmrem.fromEquirectangular(envTexture()).texture;
+    const envTex = pmrem.fromEquirectangular(envTexture()).texture;
+    scene.environment = envTex;
+    pmrem.dispose();
 
     const key = new T.DirectionalLight(0xfff6ec, 1.42);
     key.position.set(-3.3, 2.1, 2.0);
@@ -124,7 +153,8 @@ export default function CertificateModal() {
     scene.add(touchLight);
 
     const SW = 2.30, SH = 3.23;
-    const geo = new T.PlaneGeometry(SW, SH, 72, 96);
+    // Balanced geometry: visual sharpness intact with minimal GPU heat
+    const geo = new T.PlaneGeometry(SW, SH, 52, 70);
 
     const uni = {
       uTime: { value: 0 },
@@ -176,7 +206,7 @@ export default function CertificateModal() {
       void sheetPoint(vec2 q, out vec3 P, out vec3 NN){
         float u = q.x, v = q.y;
         float x=0.0, z=0.0, xe=0.0, ze=0.0, dxv=0.0, dzv=0.0, dxe=0.0, dze=0.0;
-        const int NS = 20;
+        const int NS = 16;
         float h = 1.0/float(NS);
         for(int i=0;i<NS;i++){
           float uu = (float(i)+0.5)*h;
@@ -202,7 +232,7 @@ export default function CertificateModal() {
     const imagePath = certificateImage || '/my-certificate.jpg';
     const certTex = texLoader.load(imagePath, () => {
       certTex.colorSpace = (T as any).SRGBColorSpace || (T as any).sRGBEncoding;
-      certTex.anisotropy = 8;
+      certTex.anisotropy = 4;
       certTex.needsUpdate = true;
     });
 
@@ -290,7 +320,7 @@ export default function CertificateModal() {
       const theta = (uu: number) =>
         A * (0.1 + Math.pow(uu, 1.35)) * (0.5 + 0.64 * v) * Math.sin(F * uu + TWs * v + t * 0.4 + ph);
       let x = 0, z = 0, xe = 0, ze = 0;
-      const N = 20, h = 1 / N;
+      const N = 12, h = 1 / N;
       for (let i = 0; i < N; i++) {
         const uu = (i + 0.5) * h, w = clamp((u - (uu - 0.5 * h)) / h, 0, 1);
         const th = theta(uu), c = Math.cos(th), s = Math.sin(th);
@@ -332,6 +362,7 @@ export default function CertificateModal() {
       const x = e.clientX - rect.left, y = e.clientY - rect.top;
       mouse.tx = (x / rect.width - 0.5) * 2;
       mouse.ty = (y / rect.height - 0.5) * 2;
+
       if (dragging) {
         const dx = e.clientX - lastPX, dy = e.clientY - lastPY;
         lastPX = e.clientX; lastPY = e.clientY;
@@ -339,6 +370,7 @@ export default function CertificateModal() {
         dragPitch = clamp(dragPitch - dy * 0.0045, -0.6, 0.6);
         return;
       }
+
       overSheet = inQuad(x, y);
       hoverTarget = overSheet ? 1 : 0;
     };
@@ -354,18 +386,28 @@ export default function CertificateModal() {
     };
 
     const onPointerUp = () => {
-      if (dragging) { dragging = false; release = 0.6; }
+      if (dragging) {
+        dragging = false;
+        release = 0.6;
+      }
+    };
+
+    const onPointerLeaveContainer = () => {
+      overSheet = false;
+      hoverTarget = 0;
     };
 
     const el = containerRef.current;
     el.addEventListener('pointermove', onPointerMove, { passive: true });
     el.addEventListener('pointerdown', onPointerDown);
+    el.addEventListener('pointerleave', onPointerLeaveContainer);
     window.addEventListener('pointerup', onPointerUp);
 
     function resize() {
       if (!containerRef.current) return;
       const vw = containerRef.current.clientWidth, vh = containerRef.current.clientHeight;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      // Cap DPR to 1.5 to make Safari blur buttery-smooth
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
       renderer.setSize(vw, vh, false);
       camera.aspect = vw / vh;
       camera.updateProjectionMatrix();
@@ -449,6 +491,7 @@ export default function CertificateModal() {
       if (el) {
         el.removeEventListener('pointermove', onPointerMove);
         el.removeEventListener('pointerdown', onPointerDown);
+        el.removeEventListener('pointerleave', onPointerLeaveContainer);
       }
       window.removeEventListener('pointerup', onPointerUp);
       if (canvas && canvas.parentNode) {
@@ -457,6 +500,9 @@ export default function CertificateModal() {
       renderer.dispose();
       geo.dispose();
       mat.dispose();
+      certTex.dispose();
+      haloTex.dispose();
+      envTex.dispose();
     };
   }, [isOpen, certificateImage]);
 
@@ -468,7 +514,8 @@ export default function CertificateModal() {
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: 'rgba(8, 8, 10, 0.4)',
+        // The luxury Apple glass blur you love!
+        background: 'rgba(8, 8, 10, 0.45)',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
         display: 'flex',
@@ -479,23 +526,23 @@ export default function CertificateModal() {
     >
       <style>{`
         .certificate-glass-opening {
-          animation: certificateGlassOpen 1950ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          animation: certificateGlassOpen 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
           will-change: opacity;
         }
 
         .certificate-glass-closing {
-          animation: certificateGlassClose 400ms cubic-bezier(0.4, 0, 0.6, 1) both;
+          animation: certificateGlassClose 350ms cubic-bezier(0.4, 0, 0.6, 1) both;
           will-change: opacity;
           pointer-events: none !important;
         }
 
         .certificate-modal-opening {
-          animation: certificateModalOpen 1950ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          animation: certificateModalOpen 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
           will-change: transform, opacity;
         }
 
         .certificate-modal-closing {
-          animation: certificateModalClose 400ms cubic-bezier(0.4, 0, 0.6, 1) both;
+          animation: certificateModalClose 350ms cubic-bezier(0.4, 0, 0.6, 1) both;
           will-change: transform, opacity;
           pointer-events: none !important;
         }
@@ -511,22 +558,13 @@ export default function CertificateModal() {
         }
 
         @keyframes certificateModalOpen {
-          from { opacity: 0; transform: translate3d(0, 42px, 0); }
+          from { opacity: 0; transform: translate3d(0, 30px, 0); }
           to { opacity: 1; transform: translate3d(0, 0, 0); }
         }
 
         @keyframes certificateModalClose {
           from { opacity: 1; transform: translate3d(0, 0, 0); }
-          to { opacity: 0; transform: translate3d(0, 42px, 0); }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .certificate-glass-opening,
-          .certificate-glass-closing,
-          .certificate-modal-opening,
-          .certificate-modal-closing {
-            animation-duration: 1ms;
-          }
+          to { opacity: 0; transform: translate3d(0, 30px, 0); }
         }
       `}</style>
 
