@@ -24,10 +24,16 @@ export function CustomCursor() {
     const setVisibility = (show: boolean) => {
       if (isVisible !== show) {
         isVisible = show;
-        cursor.style.opacity = show ? '1' : '0';
-        if (show && !rafId) {
-          lastTime = performance.now();
-          rafId = requestAnimationFrame(renderLoop);
+        if (show) {
+          document.documentElement.classList.add("custom-cursor-active");
+          cursor.style.opacity = '1';
+          if (!rafId) {
+            lastTime = performance.now();
+            rafId = requestAnimationFrame(renderLoop);
+          }
+        } else {
+          document.documentElement.classList.remove("custom-cursor-active");
+          cursor.style.opacity = '0';
         }
       }
     };
@@ -37,8 +43,8 @@ export function CustomCursor() {
       const dt = Math.min((now - lastTime) / 1000, 0.05);
       lastTime = now;
 
-      const followFactor = 1 - Math.exp(-24 * dt);
-      const rotationFactor = 1 - Math.exp(-14 * dt);
+      const followFactor = 1 - Math.exp(-26 * dt);
+      const rotationFactor = 1 - Math.exp(-15 * dt);
 
       currentX += (targetX - currentX) * followFactor;
       currentY += (targetY - currentY) * followFactor;
@@ -60,17 +66,36 @@ export function CustomCursor() {
       rafId = requestAnimationFrame(renderLoop);
     };
 
-    let idleTimeout: NodeJS.Timeout;
+    let idleTimeout: ReturnType<typeof setTimeout>;
+
     const onMouseMove = (e: MouseEvent) => {
-      // Disappear immediately if pointer approaches browser tabs or viewport bounds
-      if (
-        e.clientY <= 6 ||
-        e.clientX <= 4 ||
-        e.clientX >= window.innerWidth - 4 ||
-        e.clientY >= window.innerHeight - 4
-      ) {
+      const target = e.target as HTMLElement | null;
+
+      // Check if mouse is over interactive external widgets like Awwwards badge or sidebars
+      const isOverExcluded = !!(target && (
+        target.closest('[data-native-cursor]') ||
+        target.closest('a[href*="awwwards"]') ||
+        target.closest('[class*="awwward"]') ||
+        target.closest('aside') ||
+        target.closest('.no-custom-cursor')
+      ));
+
+      // Check if pointer is near window frame borders or Safari titlebar / Show Sidebar button
+      const isNearEdge =
+        e.clientY <= 18 ||
+        e.clientX <= 18 ||
+        e.clientX >= window.innerWidth - 20 ||
+        e.clientY >= window.innerHeight - 18;
+
+      if (isNearEdge || isOverExcluded) {
         setVisibility(false);
         return;
+      }
+
+      // Smooth initialization without jump on first movement
+      if (currentX === -100) {
+        currentX = e.clientX;
+        currentY = e.clientY;
       }
 
       setVisibility(true);
@@ -99,8 +124,16 @@ export function CustomCursor() {
       }
     };
 
-    const onMouseEnter = () => {
-      setVisibility(true);
+    const onMouseEnter = (e: MouseEvent) => {
+      const isNearEdge =
+        e.clientY <= 18 ||
+        e.clientX <= 18 ||
+        e.clientX >= window.innerWidth - 20 ||
+        e.clientY >= window.innerHeight - 18;
+
+      if (!isNearEdge) {
+        setVisibility(true);
+      }
     };
 
     // Robust dark/light mode detection
@@ -110,7 +143,6 @@ export function CustomCursor() {
       const docEl = document.documentElement;
       const bodyEl = document.body;
 
-      // 1. Direct Tailwind class detection
       const hasDarkClass = docEl.classList.contains("dark") || bodyEl.classList.contains("dark");
       const hasLightClass = docEl.classList.contains("light") || bodyEl.classList.contains("light");
 
@@ -123,7 +155,6 @@ export function CustomCursor() {
         return;
       }
 
-      // 2. data-theme attribute detection
       const dataTheme = docEl.getAttribute("data-theme") || bodyEl.getAttribute("data-theme");
       if (dataTheme === "dark") {
         setIsDark(true);
@@ -134,7 +165,6 @@ export function CustomCursor() {
         return;
       }
 
-      // 3. Computed background luminance detection
       const bodyBg = window.getComputedStyle(bodyEl).backgroundColor;
       const docBg = window.getComputedStyle(docEl).backgroundColor;
       const bg = bodyBg && bodyBg !== "rgba(0, 0, 0, 0)" && bodyBg !== "transparent" ? bodyBg : docBg;
@@ -151,14 +181,11 @@ export function CustomCursor() {
         }
       }
 
-      // 4. Default fallback to dark class presence
       setIsDark(hasDarkClass);
     };
 
     checkTheme();
-    const themeInterval = setInterval(checkTheme, 250);
 
-    // Instant theme update when user clicks ThemeSwitcher button
     const onClick = () => {
       setTimeout(checkTheme, 50);
     };
@@ -184,8 +211,8 @@ export function CustomCursor() {
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
       clearTimeout(idleTimeout);
-      clearInterval(themeInterval);
       observer.disconnect();
+      document.documentElement.classList.remove("custom-cursor-active");
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseout", onWindowOut);
       window.removeEventListener("click", onClick);
@@ -201,8 +228,18 @@ export function CustomCursor() {
       <style
         dangerouslySetInnerHTML={{
           __html: `
-            *, *::before, *::after {
+            /* Hide native cursor ONLY when custom cursor is actively within website canvas */
+            html.custom-cursor-active,
+            html.custom-cursor-active body,
+            html.custom-cursor-active *:not([data-native-cursor]):not(.no-custom-cursor) {
               cursor: none !important;
+            }
+
+            /* Explicit fallback for interactive sidebars and badges */
+            html.custom-cursor-active [data-native-cursor],
+            html.custom-cursor-active a[href*="awwwards"],
+            html.custom-cursor-active [class*="awwward"] {
+              cursor: pointer !important;
             }
           `,
         }}
@@ -218,7 +255,7 @@ export function CustomCursor() {
           backfaceVisibility: "hidden",
           WebkitBackfaceVisibility: "hidden",
           transform: "translate3d(-100px, -100px, 0)",
-          transition: "opacity 0.12s cubic-bezier(0.16, 1, 0.3, 1)",
+          transition: "opacity 0.14s cubic-bezier(0.16, 1, 0.3, 1)",
         }}
       >
         {/* Dark Mode Cursor */}

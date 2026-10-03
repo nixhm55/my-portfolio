@@ -11,9 +11,11 @@ const ProgressLoader = ({ progress }: { progress: number }) => {
     height: typeof window !== 'undefined' ? window.innerHeight : 0,
   });
 
+  const [isDone, setIsDone] = useState(false);
+  const [destroyed, setDestroyed] = useState(false);
+
   // Effect to update dimensions on window resize
   useEffect(() => {
-    // Handler to call on window resize
     function handleResize() {
       setWindowSize({
         width: window.innerWidth,
@@ -21,75 +23,84 @@ const ProgressLoader = ({ progress }: { progress: number }) => {
       });
     }
 
-    // Add event listener
     window.addEventListener('resize', handleResize);
-
-    // Call handler right away so state gets updated with initial window size
     handleResize();
-
-    // Remove event listener on cleanup
     return () => window.removeEventListener('resize', handleResize);
-  }, []); // Empty array ensures effect is only run on mount and unmount
+  }, []);
 
-  // Clamp progress value between 0 and 100
   const clampedProgress = Math.max(0, Math.min(100, progress));
 
-  // Calculate the size of the loader SVG based on window dimensions minus 1rem total
-  // We use the pixel equivalent for calculation here.
+  // 100% ലോഡ് ആയാൽ സ്മൂത്തായി ഡിസപ്പിയർ ആകും
+  useEffect(() => {
+    if (clampedProgress >= 100) {
+      const fadeTimer = setTimeout(() => {
+        setIsDone(true);
+      }, 400);
+
+      const destroyTimer = setTimeout(() => {
+        setDestroyed(true);
+      }, 1200);
+
+      return () => {
+        clearTimeout(fadeTimer);
+        clearTimeout(destroyTimer);
+      };
+    }
+  }, [clampedProgress]);
+
+  if (destroyed) return null;
+
   const svgWidth = Math.max(0, windowSize.width - 16);
   const svgHeight = Math.max(0, windowSize.height - 16);
 
-  // Calculate the dimensions and path length for the rectangle SVG element
   const halfStroke = 1;
-  // Adjust the actual drawing size of the rectangle within the SVG
-  const rectWidth = Math.max(0, svgWidth - strokeWidth); // Ensure size is not negative
-  const rectHeight = Math.max(0, svgHeight - strokeWidth); // Ensure size is not negative
+  const rectWidth = Math.max(0, svgWidth - strokeWidth);
+  const rectHeight = Math.max(0, svgHeight - strokeWidth);
 
-  // Calculate the total length of the rectangle's perimeter
   const perimeter = rectWidth > 0 && rectHeight > 0 ? (rectWidth * 2) + (rectHeight * 2) : 0;
-  // Calculate the stroke dash offset based on progress
   const strokeDashoffset = perimeter - (perimeter * clampedProgress) / 100;
 
-  // If size is too small (e.g., window resized very small), don't render the SVG
   if (svgWidth <= strokeWidth || svgHeight <= strokeWidth) {
-    return null; // Or return a minimal placeholder
+    return null;
   }
 
   return (
-    // Use fixed positioning to overlay the loader
     <div
       className="fixed top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none"
-      style={{ padding: '1rem' }}
+      style={{
+        padding: '1rem',
+        opacity: isDone ? 0 : 1,
+        transition: 'opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+        visibility: destroyed ? 'hidden' : 'visible',
+      }}
     >
       <svg
-        width={svgWidth} // Use calculated SVG width
-        height={svgHeight} // Use calculated SVG height
-        viewBox={`0 0 ${svgWidth} ${svgHeight}`} // Set viewBox to match the SVG size
-        style={{ display: svgWidth > 0 && svgHeight > 0 ? 'block' : 'none' }} // Hide if size is zero
+        width={svgWidth}
+        height={svgHeight}
+        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+        style={{ display: svgWidth > 0 && svgHeight > 0 ? 'block' : 'none' }}
       >
-        {/* Background track for the rectangle */}
         <rect
-          x={halfStroke} // Position x considering half stroke width
-          y={halfStroke} // Position y considering half stroke width
-          width={rectWidth} // Use calculated rectangle width
-          height={rectHeight} // Use calculated rectangle height
+          x={halfStroke}
+          y={halfStroke}
+          width={rectWidth}
+          height={rectHeight}
           fill="none"
           strokeWidth={strokeWidth}
           stroke="rgba(0, 0, 0, 0.2)"
         />
-        {/* Progress indicator rectangle */}
         <rect
           x={halfStroke}
           y={halfStroke}
-          width={rectWidth} // Use calculated rectangle width
-          height={rectHeight} // Use calculated rectangle height
+          width={rectWidth}
+          height={rectHeight}
           fill="none"
           strokeWidth={strokeWidth}
           stroke="rgba(255, 255, 255, 0.7)"
           style={{
-            strokeDasharray: perimeter, // Set the total length of dashes (perimeter)
-            strokeDashoffset: strokeDashoffset, // Set the offset to show progress
-            transition: 'stroke-dashoffset 1s ease-in-out', // Smooth transition effect
+            strokeDasharray: perimeter,
+            strokeDashoffset: strokeDashoffset,
+            transition: 'stroke-dashoffset 1s ease-in-out',
           }}
         />
       </svg>

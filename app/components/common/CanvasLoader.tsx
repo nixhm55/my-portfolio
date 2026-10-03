@@ -2,7 +2,7 @@
 
 import { useGSAP } from "@gsap/react";
 import { AdaptiveDpr, Preload, ScrollControls, useProgress } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import gsap from "gsap";
 import { Suspense, useEffect, useRef, useSyncExternalStore } from "react";
 import { isMobile } from "react-device-detect";
@@ -18,6 +18,25 @@ import { WarpTunnelController } from "./WarpTunnelController";
 import { WarpFieldBackground } from "../WarpField/WarpFieldBackground";
 import { CustomCursor } from "./CustomCursor";
 import { RopeAngelScroll } from "./RopeAngelScroll";
+
+// Responsive camera zoom controller for mobile devices
+function MobileResponsiveZoom() {
+  const { camera, size } = useThree();
+
+  useFrame(() => {
+    const isPhoneScreen = size.width < 768 || size.width < size.height;
+    const targetZoom = isPhoneScreen
+      ? Math.min(1, Math.max(0.56, (size.width / size.height) * 1.15))
+      : 1;
+
+    if (Math.abs(camera.zoom - targetZoom) > 0.002) {
+      camera.zoom = targetZoom;
+      camera.updateProjectionMatrix();
+    }
+  });
+
+  return null;
+}
 
 const CanvasLoader = (props: { children: React.ReactNode }) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -100,6 +119,7 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
             <ambientLight intensity={0.5} />
 
             <ScrollControls pages={4} damping={0.25} maxSpeed={1} distance={1} style={{ zIndex: 1 }}>
+              <MobileResponsiveZoom />
               <WarpTunnelController />
               {props.children}
               <Preloader />
