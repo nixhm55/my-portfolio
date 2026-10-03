@@ -17,7 +17,7 @@ import ThemeSwitcher from "./ThemeSwitcher";
 import { WarpTunnelController } from "./WarpTunnelController";
 import { WarpFieldBackground } from "../WarpField/WarpFieldBackground";
 import { CustomCursor } from "./CustomCursor";
-
+import { RopeAngelScroll } from "./RopeAngelScroll";
 
 const CanvasLoader = (props: { children: React.ReactNode }) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -87,7 +87,7 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
   return (
     <div className="h-[100dvh] wrapper relative">
       <CustomCursor />
-     
+      <RopeAngelScroll />
       <div className="h-[100dvh] relative" ref={ref}>
         <Canvas 
           className="base-canvas"

@@ -17,6 +17,14 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://example.com/'),
   title: "Mohammed Nisam ✌️",
   description: "A frontend developer by profession, a creative at heart.",
+  icons: {
+    icon: [
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    shortcut: "/favicon-32x32.png",
+    apple: "/favicon-32x32.png",
+  },
   keywords: "Mohammed Nisam, Frontend Developer & UI/UX Designer, React Developer, Three.js, Creative Developer, Web Development, Angular, JavaScript, TypeScript, Portfolio",
   authors: [{ name: "Mohammed Nisam" }],
   creator: "Mohammed Nisam",
