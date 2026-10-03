@@ -19,7 +19,6 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
   const [isHovered, setIsHovered] = useState(false);
   const openCertificate = useCertificateStore((state) => state.openCertificate);
 
-  // Check if this timeline point is Plus One or Plus Two
   const hasCertificate = Boolean(
     point.certificate ||
     point.subtitle?.toLowerCase().includes('plus') ||
@@ -29,26 +28,19 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
     String(point.year).includes('2025')
   );
 
-  // Directly and safely assign the correct certificate image path
   const certificatePath = useMemo(() => {
     const sub = (point.subtitle || '').toLowerCase();
     const yr = String(point.year || '');
 
-    // 1. Plus Two check
     if (sub.includes('two') || yr.includes('2025')) {
       return '/plus-two-certificate.jpg';
     }
-
-    // 2. Plus One check
     if (sub.includes('one') || yr.includes('2024')) {
       return '/my-certificate.jpg';
     }
-
-    // 3. Fallback
     if (typeof point.certificate === 'string' && point.certificate.trim() !== '') {
       return point.certificate;
     }
-
     return '/my-certificate.jpg';
   }, [point]);
 
@@ -79,8 +71,12 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
   useEffect(() => {
     if (!hasCertificate) return;
 
+    let startX = 0;
+    let startY = 0;
+    let startTime = 0;
+
     const checkHit = (clientX: number, clientY: number) => {
-      if (!certGroupRef.current) return false;
+      if (!certGroupRef.current || diff > 0.4) return false;
 
       const mouse = new THREE.Vector2(
         (clientX / window.innerWidth) * 2 - 1,
@@ -93,44 +89,56 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
       const worldPos = new THREE.Vector3();
       certGroupRef.current.getWorldPosition(worldPos);
       const screenPos = worldPos.clone().project(camera);
+      if (screenPos.z > 1) return false;
+
       const sx = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
       const sy = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
 
       const dx = Math.abs(clientX - sx);
       const dy = Math.abs(clientY - sy);
-      return dx < 75 && dy < 30;
+      return dx < (isMobile ? 50 : 75) && dy < (isMobile ? 25 : 30);
     };
 
-    const onPointerDown = (e: MouseEvent | TouchEvent) => {
-      const clientX = 'clientX' in e ? e.clientX : e.touches[0].clientX;
-      const clientY = 'clientY' in e ? e.clientY : e.touches[0].clientY;
-
-      if (checkHit(clientX, clientY)) {
-        openCertificate(certificatePath);
-      }
+    const onPointerDown = (e: PointerEvent) => {
+      startX = e.clientX;
+      startY = e.clientY;
+      startTime = performance.now();
     };
 
-    const onPointerMove = (e: MouseEvent) => {
-      const hit = checkHit(e.clientX, e.clientY);
-      setIsHovered(hit);
-      if (hit) {
-        document.body.style.cursor = 'pointer';
-      } else {
-        if (document.body.style.cursor === 'pointer') {
-          document.body.style.cursor = 'auto';
+    const onPointerUp = (e: PointerEvent) => {
+      const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
+      const duration = performance.now() - startTime;
+
+      // സ്ക്രോൾ ചെയ്യുമ്പോൾ (dist > 10px) സർട്ടിഫിക്കറ്റ് ഓപ്പൺ ആകില്ല
+      if (dist < 10 && duration < 350) {
+        if (checkHit(e.clientX, e.clientY)) {
+          openCertificate(certificatePath);
         }
       }
     };
 
+    const onPointerMove = (e: PointerEvent) => {
+      if (isMobile) return; // മൊബൈലിൽ അനാവശ്യ റേകാസ്റ്റിംഗ് ഒഴിവാക്കുന്നു
+      const hit = checkHit(e.clientX, e.clientY);
+      setIsHovered(hit);
+      document.body.style.cursor = hit ? 'pointer' : 'auto';
+    };
+
     window.addEventListener('pointerdown', onPointerDown, { passive: true });
-    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    window.addEventListener('pointerup', onPointerUp, { passive: true });
+    if (!isMobile) {
+      window.addEventListener('pointermove', onPointerMove, { passive: true });
+    }
 
     return () => {
       window.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      if (!isMobile) {
+        window.removeEventListener('pointermove', onPointerMove);
+      }
       document.body.style.cursor = 'auto';
     };
-  }, [camera, raycaster, hasCertificate, certificatePath, openCertificate]);
+  }, [camera, raycaster, hasCertificate, certificatePath, openCertificate, diff]);
 
   return (
     <group position={point.point} scale={isMobile ? 0.35 : 0.6}>
@@ -196,10 +204,11 @@ const Timeline = ({ progress }: { progress: number }) => {
 
   useFrame((_, delta) => {
     if (isActive) {
+      const safeDelta = Math.min(delta, 0.05); // ഫ്രെയിം ഡ്രോപ്പിൽ ക്യാമറ തെറിച്ചുപോകാതിരിക്കാൻ
       const position = curve.getPoint(progress);
-      camera.position.x = THREE.MathUtils.damp(camera.position.x, (isMobile ? -1 : -2) + position.x, 4, delta);
-      camera.position.y = THREE.MathUtils.damp(camera.position.y, -39 + position.z, 4, delta);
-      camera.position.z = THREE.MathUtils.damp(camera.position.z, 13 - position.y, 4, delta);
+      camera.position.x = THREE.MathUtils.damp(camera.position.x, (isMobile ? -1 : -2) + position.x, 4, safeDelta);
+      camera.position.y = THREE.MathUtils.damp(camera.position.y, -39 + position.z, 4, safeDelta);
+      camera.position.z = THREE.MathUtils.damp(camera.position.z, 13 - position.y, 4, safeDelta);
     }
   });
 
@@ -212,13 +221,13 @@ const Timeline = ({ progress }: { progress: number }) => {
         x: isActive ? 1 : 0,
         y: isActive ? 1 : 0,
         z: isActive ? 1 : 0,
-        duration: 1,
-        delay: isActive ? 0.4 : 0,
+        duration: 0.8,
+        ease: "power2.inOut",
       });
       tl.to(groupRef.current.position, {
         y: isActive ? 0 : -2,
-        duration: 1,
-        delay: isActive ? 0.4 : 0,
+        duration: 0.8,
+        ease: "power2.inOut",
       }, 0);
     }
 
@@ -231,14 +240,14 @@ const Timeline = ({ progress }: { progress: number }) => {
           setVisibleDashedCurvePoints(curvePoints.slice(0, Math.max(1, Math.ceil(p * curvePoints.length))));
           if (i > 100 && intervalRef.current) clearInterval(intervalRef.current);
         }, 10);
-      }, 1000);
+      }, 800);
     } else {
-      setVisibleDashedCurvePoints([]);
       clearInterval(intervalRef.current!);
+      setTimeout(() => setVisibleDashedCurvePoints([]), 800);
     }
 
     return () => clearInterval(intervalRef.current!);
-  }, [isActive]);
+  }, [isActive, curvePoints]);
 
   return (
     <group position={[0, -0.1, -0.1]}>

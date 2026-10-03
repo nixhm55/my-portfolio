@@ -1,5 +1,6 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
+import { isMobile } from 'react-device-detect';
 
 /**
  * Partially AI Generated
@@ -29,10 +30,12 @@ const ProgressLoader = ({ progress }: { progress: number }) => {
   }, []);
 
   const clampedProgress = Math.max(0, Math.min(100, progress));
+  const isPhone = isMobile || (windowSize.width > 0 && windowSize.width < 768);
 
-  // 100% ലോഡ് ആയാൽ സ്മൂത്തായി ഡിസപ്പിയർ ആകും
+  // Disappear only on mobile devices after loading completes.
+  // On desktop / laptop, the line remains permanently visible.
   useEffect(() => {
-    if (clampedProgress >= 100) {
+    if (isPhone && clampedProgress >= 100) {
       const fadeTimer = setTimeout(() => {
         setIsDone(true);
       }, 400);
@@ -46,9 +49,9 @@ const ProgressLoader = ({ progress }: { progress: number }) => {
         clearTimeout(destroyTimer);
       };
     }
-  }, [clampedProgress]);
+  }, [clampedProgress, isPhone]);
 
-  if (destroyed) return null;
+  if (isPhone && destroyed) return null;
 
   const svgWidth = Math.max(0, windowSize.width - 16);
   const svgHeight = Math.max(0, windowSize.height - 16);
@@ -69,9 +72,8 @@ const ProgressLoader = ({ progress }: { progress: number }) => {
       className="fixed top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none"
       style={{
         padding: '1rem',
-        opacity: isDone ? 0 : 1,
+        opacity: isPhone && isDone ? 0 : 1,
         transition: 'opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
-        visibility: destroyed ? 'hidden' : 'visible',
       }}
     >
       <svg

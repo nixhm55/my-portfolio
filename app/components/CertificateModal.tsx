@@ -92,6 +92,7 @@ export default function CertificateModal() {
     const T = THREE;
     const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
     const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isTouchScreen = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
     const canvas = document.createElement('canvas');
     canvas.style.position = 'absolute';
@@ -161,11 +162,12 @@ export default function CertificateModal() {
     key.position.set(-3.3, 2.1, 2.0);
     const fill = new T.DirectionalLight(0x9fb6ff, 0.13);
     fill.position.set(3.6, -1.8, 1.6);
-    const rim = new T.DirectionalLight(0xffffff, 0.1);
+    const rim = new T.DirectionalLight(0xffffff, 0.15);
     rim.position.set(1.6, 1.2, -2.6);
-    scene.add(key, fill, rim, new T.AmbientLight(0xffffff, 0.16));
+    scene.add(key, fill, rim, new T.AmbientLight(0xffffff, 0.18));
 
-    const touchLight = new T.PointLight(0xdfe8ff, 0, 7.5, 1.35);
+    // സർട്ടിഫിക്കറ്റിന് തിളക്കം നൽകുന്ന പ്രധാന ലൈറ്റ്
+    const touchLight = new T.PointLight(0xdfe8ff, isTouchScreen ? 2.8 : 0, 8.5, 1.35);
     touchLight.position.set(0, 0, 1.7);
     scene.add(touchLight);
 
@@ -324,7 +326,9 @@ export default function CertificateModal() {
 
     let dragging = false, dragYaw = 0, dragPitch = 0, release = 0;
     let velYaw = 0, velPitch = 0, prevYaw = 0, prevPitch = 0;
-    let lastPX = 0, lastPY = 0, overSheet = false, hover = 0, hoverTarget = 0;
+    let lastPX = 0, lastPY = 0, overSheet = false;
+    let hover = isTouchScreen ? 1 : 0;
+    let hoverTarget = isTouchScreen ? 1 : 0;
     let quad: [number, number][] | null = null, cursorNow = '';
     const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
     const _v = new T.Vector3();
@@ -384,17 +388,23 @@ export default function CertificateModal() {
         lastPX = e.clientX; lastPY = e.clientY;
         dragYaw += dx * 0.006;
         dragPitch = clamp(dragPitch - dy * 0.0045, -0.6, 0.6);
+        hoverTarget = 1; // വിരൽ കൊണ്ട് തിരിക്കുമ്പോഴും ലൈറ്റ് ആക്ടീവ് ആയി നിൽക്കും
         return;
       }
 
       overSheet = inQuad(x, y);
-      hoverTarget = overSheet ? 1 : 0;
+      hoverTarget = (isTouchScreen || overSheet) ? 1 : 0;
     };
 
     const onPointerDown = (e: PointerEvent) => {
       const rect = containerRef.current!.getBoundingClientRect();
-      if (inQuad(e.clientX - rect.left, e.clientY - rect.top)) {
+      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+      mouse.tx = (x / rect.width - 0.5) * 2;
+      mouse.ty = (y / rect.height - 0.5) * 2;
+
+      if (inQuad(x, y)) {
         dragging = true;
+        hoverTarget = 1;
         lastPX = e.clientX; lastPY = e.clientY;
         velYaw = velPitch = 0;
         prevYaw = dragYaw; prevPitch = dragPitch;
@@ -410,7 +420,7 @@ export default function CertificateModal() {
 
     const onPointerLeaveContainer = () => {
       overSheet = false;
-      hoverTarget = 0;
+      hoverTarget = isTouchScreen ? 1 : 0;
     };
 
     const el = containerRef.current;
@@ -470,6 +480,12 @@ export default function CertificateModal() {
       }
       prevYaw = dragYaw; prevPitch = dragPitch;
 
+      // ഫോണിൽ കൈ തൊടാതെ നിൽക്കുമ്പോൾ ലൈറ്റ് തനിയെ സർട്ടിഫിക്കറ്റിലൂടെ ഒഴുകി നടക്കും
+      if (isTouchScreen && !dragging) {
+        mouse.tx = Math.sin(t * 0.8) * 0.45;
+        mouse.ty = Math.cos(t * 0.6) * 0.45;
+      }
+
       mouse.x += (mouse.tx - mouse.x) * Math.min(1, dt * 3.0);
       mouse.y += (mouse.ty - mouse.y) * Math.min(1, dt * 3.0);
       const idle = REDUCED ? 0 : 1;
@@ -482,7 +498,7 @@ export default function CertificateModal() {
       group.updateMatrixWorld();
 
       hover += (hoverTarget - hover) * Math.min(1, dt * 4.5);
-      touchLight.intensity = hover * 2.6 * intro;
+      touchLight.intensity = hover * 2.8 * intro; // ഫുൾ ഗ്ലോ പവർ
       if (hover > 0.002) {
         lightPos.set(mouse.tx, -mouse.ty, 0.5).unproject(camera).sub(camera.position).normalize();
         touchLight.position.copy(camera.position).addScaledVector(lightPos, (1.75 - camera.position.z) / lightPos.z);
