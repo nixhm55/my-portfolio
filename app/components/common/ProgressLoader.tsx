@@ -1,6 +1,5 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import { isMobile } from 'react-device-detect';
 
 /**
  * Partially AI Generated
@@ -8,8 +7,8 @@ import { isMobile } from 'react-device-detect';
 const ProgressLoader = ({ progress }: { progress: number }) => {
   const strokeWidth = 3;
   const [windowSize, setWindowSize] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight,
+    width: typeof window !== 'undefined' ? window.innerWidth : 0,
+    height: typeof window !== 'undefined' ? window.innerHeight : 0,
   });
 
   // Effect to update dimensions on window resize
@@ -53,30 +52,9 @@ const ProgressLoader = ({ progress }: { progress: number }) => {
 
   // If size is too small (e.g., window resized very small), don't render the SVG
   if (svgWidth <= strokeWidth || svgHeight <= strokeWidth) {
-      return null; // Or return a minimal placeholder
+    return null; // Or return a minimal placeholder
   }
 
-  if (isMobile) {
-    return (
-      <div className="fixed top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none">
-        <div className="relative w-[100px] transition-all duration-500 font-sans font-bold"
-          style={{ opacity: progress === 100 ? 0 : 0.7, fontSize: '0.6rem' }}>
-          <div className='absolute w-[100px] bg-black opacity-30 h-[2px]'/>
-          <div
-            className="absolute transition-all duration-500 ease-in-out "
-            style={{
-              height: '2px',
-              width: `${progress}%`,
-              backgroundColor: 'white',
-            }}
-          />
-          <div className='mt-2 text-white'>
-            {`${progress.toFixed(2)}%`}
-          </div>
-        </div>
-      </div>
-    );
-  }
   return (
     // Use fixed positioning to overlay the loader
     <div
@@ -98,7 +76,6 @@ const ProgressLoader = ({ progress }: { progress: number }) => {
           fill="none"
           strokeWidth={strokeWidth}
           stroke="rgba(0, 0, 0, 0.2)"
-          // className={bgColor} // Apply ba ckground color class
         />
         {/* Progress indicator rectangle */}
         <rect

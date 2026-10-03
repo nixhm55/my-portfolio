@@ -4,25 +4,42 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useCertificateStore } from '../stores/certificate';
 
-// Ultra-lightweight Audio Manager
+// Ultra-reliable Sound Manager for pop.mp3 with Safari auto-unlock
 class SoundManager {
   private popAudio: HTMLAudioElement | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
-      this.popAudio = new Audio('/sfx/pop.wav');
+      this.popAudio = new Audio('/sfx/pop.mp3');
       this.popAudio.preload = 'auto';
+
+      const unlock = () => {
+        if (this.popAudio) {
+          this.popAudio.load();
+        }
+      };
+      window.addEventListener('pointerdown', unlock, { once: true, passive: true });
+      window.addEventListener('click', unlock, { once: true, passive: true });
     }
   }
 
   playPop() {
+    if (!this.popAudio && typeof window !== 'undefined') {
+      this.popAudio = new Audio('/sfx/pop.mp3');
+    }
     if (!this.popAudio) return;
+
     try {
       this.popAudio.currentTime = 0;
       this.popAudio.volume = 0.85;
       const playPromise = this.popAudio.play();
       if (playPromise !== undefined) {
-        playPromise.catch(() => {});
+        playPromise.catch(() => {
+          const retry = () => {
+            this.popAudio?.play().catch(() => {});
+          };
+          window.addEventListener('pointerdown', retry, { once: true });
+        });
       }
     } catch {}
   }
@@ -153,7 +170,6 @@ export default function CertificateModal() {
     scene.add(touchLight);
 
     const SW = 2.30, SH = 3.23;
-    // Balanced geometry: visual sharpness intact with minimal GPU heat
     const geo = new T.PlaneGeometry(SW, SH, 52, 70);
 
     const uni = {
@@ -406,7 +422,6 @@ export default function CertificateModal() {
     function resize() {
       if (!containerRef.current) return;
       const vw = containerRef.current.clientWidth, vh = containerRef.current.clientHeight;
-      // Cap DPR to 1.5 to make Safari blur buttery-smooth
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
       renderer.setSize(vw, vh, false);
       camera.aspect = vw / vh;
@@ -514,7 +529,6 @@ export default function CertificateModal() {
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        // The luxury Apple glass blur you love!
         background: 'rgba(8, 8, 10, 0.45)',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',

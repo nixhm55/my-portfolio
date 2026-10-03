@@ -1,31 +1,5 @@
 "use client";
 
-/**
- * RopeAngelScroll
- * ---------------------------------------------------------------------------
- * A custom scroll progress indicator that replaces the native scrollbar.
- *
- * - A slender braided sandalwood rope hangs from the top of the viewport and
- *   ends in the hands of a small angel anchored at the bottom of the track.
- * - While the page scrolls down, the top of the rope retracts downwards into the
- *   angel's grip. At progress = 1 the rope length is exactly 0px.
- * - The braid texture streams downwards while the rope is pulled.
- * - The angel heaves down and leans while scrolling, then recoils back to its
- *   upright resting pose with an elastic bounce once scrolling stops.
- *
- * Mount it once (for example inside CanvasLoader or the root layout):
- *   <RopeAngelScroll />
- *
- * Notes:
- * - Works with window scrolling and with container scrolling. Scroll events
- *   are captured on `window`, so a full-screen scroll container is detected
- *   automatically. Pass `scrollerSelector` to force a specific container.
- * - No `wheel` listeners are used. Scroll events only record state; every DOM
- *   write happens in a single GSAP ticker callback with time-based smoothing,
- *   so nothing shakes on macOS trackpads.
- * - Uses a plain <img>, which is correct for `output: 'export'`.
- */
-
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -44,45 +18,12 @@ const DEFAULT_GUTTER_WIDTH = 14;
 /** Rope thickness in px. */
 const ROPE_WIDTH = 4;
 
-/** Angel size in px (w-11 h-11). */
-const ANGEL_SIZE = 44;
-
-/** Distance between the angel and the bottom edge of the viewport. */
-const ANGEL_BOTTOM = 4;
-
-/**
- * Vertical position of the angel's hands inside angel.png,
- * as a fraction of the image height (0 = top edge, 1 = bottom edge).
- * Adjust this single value if the rope does not meet the hands exactly.
- */
-const GRIP_Y_RATIO = 0.45;
-
-/** How far the rope bottom tucks under the angel so no gap is ever visible. */
-const ROPE_OVERLAP = 3;
-
-/** Pull pose limits. */
-const PULL_MIN = 8;
-const PULL_MAX = 14;
-const LEAN_MIN = -12;
-const LEAN_MAX = -18;
-const STRETCH_LIGHT = 1.04;
-const STRETCH_MAX = 1.08;
-
-/** Small, gentle pose used while scrolling back up (the rope is being released). */
-const RELEASE_Y = -2;
-const RELEASE_LEAN = 5;
-const RELEASE_STRETCH = 0.985;
-
-/** Scroll speed (px/s) at which the pull reaches its maximum. */
-const VELOCITY_FOR_MAX_PULL = 1600;
-
-/** Time without scroll movement before the angel recoils. */
+/** Time without scroll movement before scrolling state resets. */
 const STOP_DELAY_MS = 140;
 
 /** Smoothing rates (higher = snappier). Used with exponential damping. */
 const PROGRESS_SMOOTHING = 16;
 const VELOCITY_SMOOTHING = 10;
-const POSE_FOLLOW = 10;
 
 /* -------------------------------------------------------------------------- */
 /* Static assets                                                              */
@@ -147,11 +88,6 @@ function readProgress(element: HTMLElement): number {
   return clamp(element.scrollTop / range, 0, 1);
 }
 
-/**
- * A container only counts as "the page scroller" when it covers (almost) the
- * whole viewport. This keeps small scrollable widgets and modals from hijacking
- * the rope.
- */
 function isViewportSizedScroller(element: HTMLElement): boolean {
   if (element.scrollHeight - element.clientHeight <= 1) return false;
   const rect = element.getBoundingClientRect();
@@ -179,18 +115,12 @@ export function RopeAngelScroll({
   const trackRef = useRef<HTMLDivElement>(null);
   const ropeRef = useRef<HTMLDivElement>(null);
   const tasselRef = useRef<HTMLDivElement>(null);
-  const angelRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     const track = trackRef.current;
     const rope = ropeRef.current;
     const tassel = tasselRef.current;
-    const angel = angelRef.current;
-    if (!track || !rope || !tassel || !angel) return;
-
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
+    if (!track || !rope || !tassel) return;
 
     const getExplicitScroller = (): HTMLElement | null =>
       scrollerSelector
@@ -202,67 +132,40 @@ export function RopeAngelScroll({
     let scroller: HTMLElement = getExplicitScroller() ?? getRootScroller();
     let trackHeight = track.clientHeight || window.innerHeight;
 
-    let targetProgress = readProgress(scroller); // raw value from scroll position
-    let progress = targetProgress; // smoothed value used for rendering
+    let targetProgress = readProgress(scroller);
+    let progress = targetProgress;
 
     let lastTop = scroller.scrollTop;
-    let deltaAccum = 0; // px scrolled since the previous tick
-    let velocity = 0; // smoothed scroll speed in px/s
-    let direction = 1; // 1 = scrolling down, -1 = scrolling up
+    let deltaAccum = 0;
+    let velocity = 0;
     let scrolling = false;
 
     let stopTimer = 0;
     let lastSyncTime = 0;
     let lastSignature = "";
     let revealed = false;
-    let recoil: gsap.core.Tween | null = null;
-
-    // Pose of the angel. Animated by the ticker while scrolling and by a
-    // GSAP elastic tween while recoiling.
-    const pose = { y: 0, lean: 0, stretch: 1 };
 
     /* ----------------------------- rendering ---------------------------- */
 
     const render = () => {
-      // Distance from the top of the track to the hands while the angel rests.
-      const gripRest = Math.max(
-        0,
-        trackHeight - ANGEL_BOTTOM - ANGEL_SIZE * (1 - GRIP_Y_RATIO)
-      );
-
-      // Total distance the rope top travels. It includes PULL_MAX so the rope
-      // length is exactly 0 at progress = 1, even in the middle of a pull.
-      const travel = gripRest + ROPE_OVERLAP + PULL_MAX;
-
-      const ropeTop = progress * travel;
-      const ropeBottom = gripRest + ROPE_OVERLAP + pose.y; // follows the hands
-      const ropeLength = Math.max(0, ropeBottom - ropeTop);
-
-      // The braid is anchored to the rope bottom and fed downwards in step
-      // with the retraction, as if it were sliding through the grip.
+      const travel = trackHeight;
+      const minLength = 22;
+      // Scales seamlessly from top: 0 all the way to bottom: 0 with absolute zero gap
+      const ropeLength = Math.max(minLength, minLength + progress * (travel - minLength));
       const feed = progress * travel;
 
       const signature = [
-        round2(ropeTop),
         round2(ropeLength),
         round2(feed),
-        round2(pose.y),
-        round2(pose.lean),
-        Math.round(pose.stretch * 1000),
       ].join("|");
       if (signature === lastSignature) return;
       lastSignature = signature;
 
-      rope.style.transform = `translate3d(0, ${round2(ropeTop)}px, 0)`;
+      rope.style.transform = "translate3d(0, 0, 0)";
       rope.style.height = `${round2(ropeLength)}px`;
       rope.style.backgroundPositionY = `calc(100% + ${round2(feed)}px), 0px`;
-      rope.style.visibility = ropeLength > 0.4 ? "visible" : "hidden";
-      tassel.style.opacity = String(clamp(ropeLength / 18, 0, 1));
-
-      angel.style.transform =
-        `translate3d(0, ${round2(pose.y)}px, 0) ` +
-        `rotate(${round2(pose.lean)}deg) ` +
-        `scaleY(${pose.stretch.toFixed(4)})`;
+      rope.style.visibility = "visible";
+      tassel.style.opacity = "1";
     };
 
     /* ------------------------------- ticker ----------------------------- */
@@ -270,8 +173,6 @@ export function RopeAngelScroll({
     const tick = (time: number, deltaMs: number) => {
       const dt = clamp(deltaMs, 1, 50) / 1000;
 
-      // Layout can change without any scroll event (lazy content, pin spacers),
-      // so re-read the progress a couple of times per second.
       if (time - lastSyncTime > 0.5) {
         lastSyncTime = time;
         const explicit = getExplicitScroller();
@@ -279,7 +180,6 @@ export function RopeAngelScroll({
         targetProgress = readProgress(scroller);
       }
 
-      // Time-based exponential smoothing: identical feel at 60 / 120 Hz.
       progress +=
         (targetProgress - progress) * (1 - Math.exp(-dt * PROGRESS_SMOOTHING));
       if (Math.abs(targetProgress - progress) < 0.0002) {
@@ -290,26 +190,6 @@ export function RopeAngelScroll({
       deltaAccum = 0;
       velocity +=
         (instantVelocity - velocity) * (1 - Math.exp(-dt * VELOCITY_SMOOTHING));
-
-      if (scrolling && !reduceMotion) {
-        const intensity = clamp(velocity / VELOCITY_FOR_MAX_PULL, 0, 1);
-        const pulling = direction > 0;
-
-        const targetY = pulling
-          ? PULL_MIN + (PULL_MAX - PULL_MIN) * intensity
-          : RELEASE_Y;
-        const targetLean = pulling
-          ? LEAN_MIN + (LEAN_MAX - LEAN_MIN) * intensity
-          : RELEASE_LEAN;
-        const targetStretch = pulling
-          ? STRETCH_LIGHT + (STRETCH_MAX - STRETCH_LIGHT) * intensity
-          : RELEASE_STRETCH;
-
-        const follow = 1 - Math.exp(-dt * POSE_FOLLOW);
-        pose.y += (targetY - pose.y) * follow;
-        pose.lean += (targetLean - pose.lean) * follow;
-        pose.stretch += (targetStretch - pose.stretch) * follow;
-      }
 
       render();
 
@@ -325,21 +205,9 @@ export function RopeAngelScroll({
       scrolling = false;
       velocity = 0;
       deltaAccum = 0;
-      if (reduceMotion) return;
-
-      recoil?.kill();
-      recoil = gsap.to(pose, {
-        y: 0,
-        lean: 0,
-        stretch: 1,
-        duration: 1.3,
-        ease: "elastic.out(1, 0.5)",
-        overwrite: true,
-      });
     };
 
     const onScroll = (event: Event) => {
-      // Capture-phase listener on window: catches window AND container scrolls.
       const explicit = getExplicitScroller();
       let next: HTMLElement | null = null;
 
@@ -366,18 +234,11 @@ export function RopeAngelScroll({
 
       targetProgress = readProgress(scroller);
 
-      // Ignore no-op events and rubber-band overscroll (macOS / iOS).
       const overscroll = top < -1 || top > range + 1;
       if (delta === 0 || overscroll) return;
 
-      direction = delta > 0 ? 1 : -1;
       deltaAccum += delta;
       scrolling = true;
-
-      if (recoil) {
-        recoil.kill();
-        recoil = null;
-      }
 
       window.clearTimeout(stopTimer);
       stopTimer = window.setTimeout(onStop, STOP_DELAY_MS);
@@ -411,7 +272,6 @@ export function RopeAngelScroll({
       ScrollTrigger.removeEventListener("refresh", syncProgress);
       resizeObserver.disconnect();
       window.clearTimeout(stopTimer);
-      recoil?.kill();
     };
   }, [scrollerSelector]);
 
@@ -426,7 +286,7 @@ export function RopeAngelScroll({
         className="pointer-events-none fixed inset-y-0 right-0 z-[9999] select-none opacity-0 transition-opacity duration-500"
         style={{ width: gutterWidth }}
       >
-        {/* Braided sandalwood rope (height and offset are driven by the ticker) */}
+        {/* Braided sandalwood rope flush at top: 0 with zero gap */}
         <div
           ref={ropeRef}
           className="absolute top-0 will-change-transform"
@@ -436,7 +296,7 @@ export function RopeAngelScroll({
             height: 0,
             visibility: "hidden",
             zIndex: 1,
-            borderRadius: ROPE_WIDTH / 2,
+            borderRadius: "0 0 2px 2px",
             backgroundImage: ROPE_BACKGROUND,
             backgroundSize: "100% 6px, 100% 100%",
             backgroundRepeat: "repeat-y, no-repeat",
@@ -444,16 +304,18 @@ export function RopeAngelScroll({
             boxShadow: "0 0 1.5px rgba(40, 24, 8, 0.35)",
           }}
         >
-          {/* Frayed knot / tassel marking the top end of the rope */}
+          {/* Frayed knot / tassel mounted at the moving bottom tip of the rope */}
           <div
             ref={tasselRef}
             className="absolute"
             style={{
               left: "50%",
-              top: -8.5,
+              bottom: 0,
               width: 14,
               height: 18,
               marginLeft: -7,
+              transform: "rotate(180deg)",
+              transformOrigin: "center center",
             }}
           >
             <svg
@@ -510,31 +372,6 @@ export function RopeAngelScroll({
               />
             </svg>
           </div>
-        </div>
-
-        {/* Angel: anchored to the very bottom of the track, above the rope */}
-        <div
-          className="absolute"
-          style={{
-            left: "50%",
-            bottom: ANGEL_BOTTOM,
-            width: ANGEL_SIZE,
-            height: ANGEL_SIZE,
-            marginLeft: -ANGEL_SIZE / 2,
-            zIndex: 2,
-          }}
-        >
-          {/* Plain <img> on purpose: the site uses `output: 'export'` */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            ref={angelRef}
-            src="/angel.png"
-            alt=""
-            draggable={false}
-            decoding="async"
-            className="pointer-events-none block h-full w-full select-none object-contain will-change-transform"
-            style={{ transformOrigin: `50% ${GRIP_Y_RATIO * 100}%` }}
-          />
         </div>
       </div>
     </>
