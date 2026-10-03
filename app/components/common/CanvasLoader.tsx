@@ -14,7 +14,10 @@ import Preloader from "./Preloader";
 import ProgressLoader from "./ProgressLoader";
 import { ScrollHint } from "./ScrollHint";
 import ThemeSwitcher from "./ThemeSwitcher";
-// import {Perf} from "r3f-perf"
+import { WarpTunnelController } from "./WarpTunnelController";
+import { WarpFieldBackground } from "../WarpField/WarpFieldBackground";
+import { CustomCursor } from "./CustomCursor";
+
 
 const CanvasLoader = (props: { children: React.ReactNode }) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -23,7 +26,6 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
   const { progress } = useProgress();
   const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
 
-  // തീം മാറുമ്പോൾ Safari-യുടെ ടോപ്പ് ബാറും ഒപ്പം മാറാൻ
   useEffect(() => {
     if (typeof window !== "undefined") {
       document.body.style.backgroundColor = backgroundColor;
@@ -35,8 +37,6 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
         document.head.appendChild(meta);
       }
 
-      // Safari ബാർ ഡാർക്ക് മോഡിൽ ഡിം ആകുന്നതുകൊണ്ട്, ലൈറ്റ് ബ്ലൂ വരുമ്പോൾ
-      // അതിലേക്ക് കുറച്ചുകൂടി ബ്രൈറ്റ് ആയ ബ്ലൂ നൽകുന്നു (ഇതോടെ രണ്ടും ഒരേ ലൈറ്റ് ബ്ലൂ ആയി മാറും)
       const isLightMode = backgroundColor !== '#0a0a0a' && backgroundColor !== '#010101' && backgroundColor !== '#000000';
       const safariColor = isLightMode ? '#62c9fa' : backgroundColor;
 
@@ -86,6 +86,8 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
 
   return (
     <div className="h-[100dvh] wrapper relative">
+      <CustomCursor />
+     
       <div className="h-[100dvh] relative" ref={ref}>
         <Canvas 
           className="base-canvas"
@@ -94,11 +96,11 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
           dpr={[1, 1.5]}
           gl={{ powerPreference: 'high-performance', antialias: false }}
         >
-          {/* <Perf/> */}
           <Suspense fallback={null}>
             <ambientLight intensity={0.5} />
 
             <ScrollControls pages={4} damping={0.25} maxSpeed={1} distance={1} style={{ zIndex: 1 }}>
+              <WarpTunnelController />
               {props.children}
               <Preloader />
             </ScrollControls>
@@ -109,6 +111,30 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
         </Canvas>
         <ProgressLoader progress={progress} />
       </div>
+
+      <div
+        id="warp-field-overlay"
+        style={{
+          position: "fixed",
+          inset: 0,
+          width: "100vw",
+          height: "100vh",
+          pointerEvents: "none",
+          zIndex: 40,
+          opacity: 0,
+          visibility: "hidden",
+          transition: "opacity 0.15s ease-out",
+        }}
+      >
+        <WarpFieldBackground
+          variant="hyperspace"
+          speed={15}
+          streakOpacity={0.4}
+          tileOpacity={0.5}
+          transparentBackground={true}
+        />
+      </div>
+
       <AwwardsBadge />
       <ThemeSwitcher />
       <ScrollHint />
