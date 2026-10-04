@@ -1,6 +1,7 @@
 
 import { useThemeStore } from "@/app/stores";
 import { Stars } from "@react-three/drei";
+import { memo } from "react";
 
 const StarsContainer = () => {
   const isDarkTheme = useThemeStore((state) => state.theme.type === 'dark');
@@ -12,4 +13,4 @@ const StarsContainer = () => {
   );
 };
 
-export default StarsContainer;
+export default memo(StarsContainer);

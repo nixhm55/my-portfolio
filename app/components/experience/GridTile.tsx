@@ -49,11 +49,9 @@ const GridTile = (props: GridTileProps) => {
   }, []);
 
   useFrame(() => {
-    const d = data.range(0.95, 0.05);
-    if (isMobile && titleRef.current) {
-      /* eslint-disable  @typescript-eslint/no-explicit-any */
-      (titleRef.current as any).fillOpacity = d;
-    }
+    if (!isMobile || !data?.range || !titleRef.current) return;
+    /* eslint-disable  @typescript-eslint/no-explicit-any */
+    (titleRef.current as any).fillOpacity = data.range(0.95, 0.05);
   });
 
   const handleEscape = (e: KeyboardEvent) => {

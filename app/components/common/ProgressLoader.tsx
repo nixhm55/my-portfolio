@@ -1,10 +1,12 @@
+import { useProgress } from '@react-three/drei';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 
 /**
  * Partially AI Generated
  */
-const ProgressLoader = ({ progress }: { progress: number }) => {
+const ProgressLoader = () => {
+  const progress = useProgress((state) => state.progress) ?? 0;
   const strokeWidth = 3;
   const [windowSize, setWindowSize] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 0,

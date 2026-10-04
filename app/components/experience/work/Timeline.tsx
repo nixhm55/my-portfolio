@@ -192,15 +192,16 @@ const Timeline = ({ progress }: { progress: number }) => {
   const visibleTimelinePoints = useMemo(() => timeline.slice(0, Math.max(1, Math.round(progress * (timeline.length - 1) + 1))), [timeline, progress]);
 
   const [visibleDashedCurvePoints, setVisibleDashedCurvePoints] = useState<THREE.Vector3[]>([]);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cameraTarget = useRef(new THREE.Vector3());
 
   useFrame((_, delta) => {
-    if (isActive) {
-      const position = curve.getPoint(progress);
-      camera.position.x = THREE.MathUtils.damp(camera.position.x, (isMobile ? -1 : -2) + position.x, 4, delta);
-      camera.position.y = THREE.MathUtils.damp(camera.position.y, -39 + position.z, 4, delta);
-      camera.position.z = THREE.MathUtils.damp(camera.position.z, 13 - position.y, 4, delta);
-    }
+    if (!isActive) return;
+    curve.getPoint(progress, cameraTarget.current);
+    const position = cameraTarget.current;
+    camera.position.x = THREE.MathUtils.damp(camera.position.x, (isMobile ? -1 : -2) + position.x, 4, delta);
+    camera.position.y = THREE.MathUtils.damp(camera.position.y, -39 + position.z, 4, delta);
+    camera.position.z = THREE.MathUtils.damp(camera.position.z, 13 - position.y, 4, delta);
   });
 
   const groupRef = useRef<THREE.Group>(null);

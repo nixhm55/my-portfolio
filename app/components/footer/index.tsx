@@ -1,7 +1,7 @@
 import { Svg, Text, useCursor, useScroll } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import gsap from "gsap";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { isMobile } from "react-device-detect";
 import * as THREE from "three";
 import { FOOTER_LINKS } from "../../constants";
@@ -89,29 +89,25 @@ const Footer = () => {
   const data = useScroll();
 
   useFrame(() => {
-    const d = data.range(0.8, 0.2);
-    if (groupRef.current) {
-      groupRef.current.visible = d > 0;
-    }
+    if (!data?.range || !groupRef.current) return;
+    groupRef.current.visible = data.range(0.8, 0.2) > 0;
   });
 
-  const getLinks = () => {
-    return FOOTER_LINKS.map((link, i) => {
-      return (
-        <group key={i} position={[i * (isMobile ? 1.1 : 2), 0, 0]}>
-          <FooterLinkItem link={link}/>
-        </group>
-      );
-    });
-  };
+  const links = useMemo(() => (
+    FOOTER_LINKS.map((link, i) => (
+      <group key={i} position={[i * (isMobile ? 1.1 : 2), 0, 0]}>
+        <FooterLinkItem link={link}/>
+      </group>
+    ))
+  ), []);
 
   return (
     <group position={[0, -44, 18]} rotation={[-Math.PI / 2, 0, 0]} ref={groupRef}>
       <group position={[isMobile ? -2.5 : -4, 0, 0]}>
-        { getLinks() }
+        {links}
       </group>
     </group>
   );
 };
 
-export default Footer;
+export default memo(Footer);

@@ -21,37 +21,60 @@ export function WarpFieldBackground({ className = "", ...props }: WarpFieldBackg
     const renderer = createWarpFieldRenderer(canvas, () => optionsRef.current);
     let frame = 0;
     let visible = true;
+    let overlayActive = false;
+
+    const overlay = host.parentElement;
+
+    const isOverlayActive = () => {
+      if (!overlay) return true;
+      return overlay.style.visibility !== "hidden" && overlay.style.opacity !== "0";
+    };
 
     const resize = () => {
       const bounds = host.getBoundingClientRect();
       renderer.resize(bounds.width, bounds.height);
-      renderer.render();
+      if (isOverlayActive()) renderer.render();
     };
 
     const tick = () => {
-      renderer.render();
-      frame = visible && !document.hidden ? requestAnimationFrame(tick) : 0;
+      overlayActive = isOverlayActive();
+      if (overlayActive) renderer.render();
+      frame = visible && !document.hidden && overlayActive ? requestAnimationFrame(tick) : 0;
+    };
+
+    const startLoop = () => {
+      if (!frame && visible && !document.hidden && isOverlayActive()) {
+        frame = requestAnimationFrame(tick);
+      }
     };
 
     const resizeObserver = new ResizeObserver(resize);
     const intersection = new IntersectionObserver(([entry]) => {
       visible = entry?.isIntersecting ?? true;
-      if (visible && !frame) frame = requestAnimationFrame(tick);
+      if (visible) startLoop();
       if (!visible && frame) {
         cancelAnimationFrame(frame);
         frame = 0;
       }
     });
 
+    const mutation = overlay
+      ? new MutationObserver(() => {
+          if (isOverlayActive()) startLoop();
+        })
+      : null;
+    mutation?.observe(overlay as Node, { attributes: true, attributeFilter: ["style"] });
+
     resizeObserver.observe(host);
     intersection.observe(host);
     resize();
-    frame = requestAnimationFrame(tick);
+    startLoop();
 
     return () => {
       if (frame) cancelAnimationFrame(frame);
       resizeObserver.disconnect();
       intersection.disconnect();
+      mutation?.disconnect();
       renderer.dispose();
     };
   }, []);

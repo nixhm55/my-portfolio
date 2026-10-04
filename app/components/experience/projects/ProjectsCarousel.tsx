@@ -56,7 +56,7 @@ const ProjectsCarousel = () => {
         />
       );
     });
-  }, [activeId, isActive]);
+  }, [activeId]);
 
   return (
     <group rotation={[0, -Math.PI / 12, 0]}>

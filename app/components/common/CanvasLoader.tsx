@@ -4,7 +4,7 @@ import { useGSAP } from "@gsap/react";
 import { AdaptiveDpr, Preload, ScrollControls, useProgress } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import gsap from "gsap";
-import { Suspense, useEffect, useRef, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { isMobile } from "react-device-detect";
 
 import { useThemeStore } from "@stores";
@@ -19,11 +19,37 @@ import { WarpFieldBackground } from "../WarpField/WarpFieldBackground";
 import { CustomCursor } from "./CustomCursor";
 import { RopeAngelScroll } from "./RopeAngelScroll";
 
+const CANVAS_DPR: [number, number] = [1, 1.5];
+const CANVAS_GL = {
+  powerPreference: "high-performance" as const,
+  antialias: false,
+  stencil: false,
+  depth: true,
+};
+
+const noiseOverlayStyle = {
+  backgroundBlendMode: "soft-light",
+  backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 600'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)'/%3E%3C/svg%3E\")",
+  backgroundRepeat: "repeat",
+  backgroundSize: "100px",
+};
+
+const CanvasFadeIn = () => {
+  const progress = useProgress((state) => state.progress) ?? 0;
+
+  useGSAP(() => {
+    if (progress === 100) {
+      gsap.to('.base-canvas', { opacity: 1, duration: 3, delay: 1 });
+    }
+  }, [progress]);
+
+  return null;
+};
+
 const CanvasLoader = (props: { children: React.ReactNode }) => {
   const ref = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const backgroundColor = useThemeStore((state) => state.theme.color);
-  const { progress } = useProgress();
   const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
 
   useEffect(() => {
@@ -44,7 +70,7 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
     }
   }, [backgroundColor]);
 
-  const canvasStyle: React.CSSProperties = {
+  const canvasStyle: React.CSSProperties = useMemo(() => ({
     position: "absolute",
     top: 0,
     bottom: 0,
@@ -57,13 +83,7 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
       width: 'calc(100% - 2rem)',
       height: 'calc(100% - 2rem)',
     }),
-  };
-
-  useGSAP(() => {
-    if (progress === 100) {
-      gsap.to('.base-canvas', { opacity: 1, duration: 3, delay: 1 });
-    }
-  }, [progress]);
+  }), [mounted]);
 
   useGSAP(() => {
     gsap.to(ref.current, {
@@ -77,13 +97,6 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
     });
   }, [backgroundColor]);
 
-  const noiseOverlayStyle = {
-    backgroundBlendMode: "soft-light",
-    backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 600'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)'/%3E%3C/svg%3E\")",
-    backgroundRepeat: "repeat",
-    backgroundSize: "100px",
-  };
-
   return (
     <div className="h-[100dvh] wrapper relative">
       <CustomCursor />
@@ -93,13 +106,15 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
           className="base-canvas"
           style={canvasStyle}
           ref={canvasRef}
-          dpr={[1, 1.5]}
-          gl={{ powerPreference: 'high-performance', antialias: false }}
+          dpr={CANVAS_DPR}
+          gl={CANVAS_GL}
+          performance={{ min: 0.5 }}
         >
           <Suspense fallback={null}>
             <ambientLight intensity={0.5} />
+            <CanvasFadeIn />
 
-            <ScrollControls pages={4} damping={0.25} maxSpeed={1} distance={1} style={{ zIndex: 1 }}>
+            <ScrollControls pages={4} damping={0.2} distance={1} style={{ zIndex: 1 }}>
               <WarpTunnelController />
               {props.children}
               <Preloader />
@@ -109,7 +124,7 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
           </Suspense>
           <AdaptiveDpr pixelated/>
         </Canvas>
-        <ProgressLoader progress={progress} />
+        <ProgressLoader />
       </div>
 
       <div

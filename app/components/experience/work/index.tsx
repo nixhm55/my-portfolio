@@ -2,14 +2,15 @@
 
 import { ScrollControls } from '@react-three/drei';
 import { usePortalStore, useScrollStore } from '@stores';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { Memory } from '../../models/Memory';
 import Timeline from './Timeline';
 
 const Work = () => {
   const isActive = usePortalStore((state) => state.activePortalId === 'work');
-  const { scrollProgress, setScrollProgress } = useScrollStore();
+  const scrollProgress = useScrollStore((state) => state.scrollProgress);
+  const setScrollProgress = useScrollStore((state) => state.setScrollProgress);
   const progressRef = useRef(0);
 
   useEffect(() => {
@@ -22,18 +23,21 @@ const Work = () => {
     progressRef.current = 0;
     setScrollProgress(0);
 
-    // Direct wheel and trackpad listener for Education timeline scroll
+    let raf = 0;
+    const flushProgress = () => {
+      raf = 0;
+      setScrollProgress(progressRef.current);
+    };
+
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
-      // Smooth step increment (tune 0.00075 for faster or slower scroll)
       const delta = e.deltaY * 0.00075;
       progressRef.current = Math.min(Math.max(progressRef.current + delta, 0), 1);
-      setScrollProgress(progressRef.current);
+      if (!raf) raf = requestAnimationFrame(flushProgress);
     };
 
-    // Touch support for mobile devices
     let touchStartY = 0;
     const handleTouchStart = (e: TouchEvent) => {
       touchStartY = e.touches[0].clientY;
@@ -44,7 +48,7 @@ const Work = () => {
       const delta = (touchStartY - touchY) * 0.002;
       touchStartY = touchY;
       progressRef.current = Math.min(Math.max(progressRef.current + delta, 0), 1);
-      setScrollProgress(progressRef.current);
+      if (!raf) raf = requestAnimationFrame(flushProgress);
     };
 
     window.addEventListener('wheel', handleWheel, { passive: false });
@@ -52,11 +56,15 @@ const Work = () => {
     window.addEventListener('touchmove', handleTouchMove, { passive: false });
 
     return () => {
+      if (raf) cancelAnimationFrame(raf);
       window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchmove', handleTouchMove);
     };
   }, [isActive, setScrollProgress]);
+
+  const memoryScale = useMemo(() => new THREE.Vector3(5, 5, 5), []);
+  const memoryPosition = useMemo(() => new THREE.Vector3(0, -6, 1), []);
 
   return (
     <group>
@@ -65,7 +73,7 @@ const Work = () => {
         <shadowMaterial opacity={0.1} />
       </mesh>
       <ScrollControls style={{ zIndex: -1 }} pages={2} maxSpeed={0.4}>
-        <Memory scale={new THREE.Vector3(5, 5, 5)} position={new THREE.Vector3(0, -6, 1)} />
+        <Memory scale={memoryScale} position={memoryPosition} />
         <Timeline progress={isActive ? scrollProgress : 0} />
       </ScrollControls>
     </group>

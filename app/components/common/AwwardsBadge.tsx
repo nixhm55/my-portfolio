@@ -13,7 +13,7 @@ const AwwardsBadge = () => {
   const isPortalActive = usePortalStore((state) => !!state.activePortalId);
   const scrollProgress = useScrollStore((state) => state.scrollProgress);
   const color = useThemeStore((state) => state.theme.color);
-  const { progress } = useProgress();
+  const progress = useProgress((state) => state.progress) ?? 0;
 
   const [startAnimation, setStartAnimation] = useState(false);
   const loaded = progress === 100;

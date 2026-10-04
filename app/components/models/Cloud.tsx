@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Cloud, Clouds } from "@react-three/drei";
 import * as THREE from "three";
 
@@ -84,4 +85,4 @@ const CloudContainer = () => {
     </Clouds>);
 }
 
-export default CloudContainer;
+export default memo(CloudContainer);
