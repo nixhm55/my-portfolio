@@ -1,3 +1,5 @@
+// app/components/common/CanvasLoader.tsx
+
 'use client';
 
 import { useGSAP } from "@gsap/react";
@@ -98,9 +100,10 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
   }, [backgroundColor]);
 
   return (
-    <div className="h-[100dvh] wrapper relative">
+    <div className="h-[100dvh] wrapper relative overflow-hidden">
       <CustomCursor />
       <RopeAngelScroll />
+
       <div className="h-[100dvh] relative" ref={ref}>
         <Canvas 
           className="base-canvas"
