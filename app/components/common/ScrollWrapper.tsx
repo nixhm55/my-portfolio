@@ -29,6 +29,9 @@ const ScrollWrapper = ({ children }: { children: React.ReactNode | React.ReactNo
     const d = safeRange(data, 0.85, 0.18);
 
     if (!isActiveRef.current) {
+      // 🚨 FIX: ബാക്ക് അടിക്കുമ്പോൾ ക്യാമറ കൃത്യമായി X ആക്സിസിന്റെ സെന്ററിലേക്ക് (0) വരാൻ
+      camera.position.x = THREE.MathUtils.damp(camera.position.x, 0, 10, delta);
+      
       camera.rotation.x = THREE.MathUtils.damp(camera.rotation.x, -0.5 * Math.PI * a, 8, delta);
       camera.position.y = THREE.MathUtils.damp(camera.position.y, -37 * b, 10, delta);
       camera.position.z = THREE.MathUtils.damp(camera.position.z, 5 + 10 * d, 10, delta);
@@ -37,10 +40,13 @@ const ScrollWrapper = ({ children }: { children: React.ReactNode | React.ReactNo
       setScrollProgress(offset);
     }
 
-    if (!isMobile && !isActiveRef.current) {
+    if (!isMobile) {
+      // മൗസ് അനുസരിച്ച് വർക്ക് ചെയ്യാനും, പോർട്ടലിൽ കയറുമ്പോൾ നേരെ നിൽക്കാനും
+      const targetRotationY = !isActiveRef.current ? -(state.pointer.x * Math.PI) / 90 : 0;
+      
       camera.rotation.y = THREE.MathUtils.lerp(
         camera.rotation.y,
-        -(state.pointer.x * Math.PI) / 90,
+        targetRotationY,
         0.05
       );
     }

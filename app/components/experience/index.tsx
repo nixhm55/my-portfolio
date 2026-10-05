@@ -1,3 +1,5 @@
+'use client';
+
 import { Text, useScroll } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { usePortalStore } from "@stores";
@@ -7,6 +9,7 @@ import * as THREE from 'three';
 import GridTile from "./GridTile";
 import Projects from "./projects";
 import Work from "./work";
+import WovenClothPortal from "./WovenClothPortal";
 
 const fontProps = {
   font: "./soria-font.ttf",
@@ -38,14 +41,13 @@ const Experience = () => {
     }
 
     const title = titleRef.current;
-    if (!title) return;
-
-    const children = title.children;
-    for (let i = 0; i < children.length; i++) {
-      const text = children[i];
-      const y = Math.max(Math.min((1 - d) * (10 - i), 10), 0.5);
-      text.position.y = THREE.MathUtils.damp(text.position.y, y, 7, delta);
-      (text as THREE.Mesh & { fillOpacity?: number }).fillOpacity = e;
+    if (title) {
+      title.children.forEach((text, i) => {
+        const y = Math.max(Math.min((1 - d) * (10 - i), 10), 0.5);
+        text.position.y = THREE.MathUtils.damp(text.position.y, y, 7, delta);
+        /* eslint-disable  @typescript-eslint/no-explicit-any */
+        (text as any).fillOpacity = e;
+      });
     }
   });
 
@@ -58,30 +60,39 @@ const Experience = () => {
   }, []);
 
   return (
-    <group position={[0, -41.5, 12]} rotation={[-Math.PI / 2, 0 ,-Math.PI / 2]}>
-      <group rotation={[0, 0, Math.PI / 2]}>
-        <group ref={titleRef} position={[isMobile ? -1.8 : -3.6, 2, -2]}>
-          {titleLetters}
-        </group>
+    <>
+      <WovenClothPortal
+        position={[0, -25.1, 4.6]}
+        rotation={[-1.7453, 0, 0]}
+        scale={[0.2, -0.2, 0.2]}
+      />
 
-        <group position={[0, -1, 0]} ref={groupRef}>
-          <GridTile title='EDUCATION'
-            id="work"
-            color='#b9c6d6'
-            textAlign='left'
-            position={workPosition}>
-            <Work/>
-          </GridTile>
-          <GridTile title='PROJECTS'
-            id="projects"
-            color='#bdd1e3'
-            textAlign='right'
-            position={projectsPosition}>
-            <Projects/>
-          </GridTile>
+      <group position={[0, -41.5, 12]} rotation={[-Math.PI / 2, 0, -Math.PI / 2]}>
+        <group rotation={[0, 0, Math.PI / 2]}>
+          <group ref={titleRef} position={[isMobile ? -1.8 : -3.6, 2, -2]}>
+            {titleLetters}
+          </group>
+
+          <group position={[0, -1, 0]} ref={groupRef}>
+            <GridTile title='EDUCATION'
+              id="work"
+              color='#b9c6d6'
+              textAlign='left'
+              position={workPosition}>
+              <Work/>
+            </GridTile>
+
+            <GridTile title='PROJECTS'
+              id="projects"
+              color='#bdd1e3'
+              textAlign='right'
+              position={projectsPosition}>
+              <Projects/>
+            </GridTile>
+          </group>
         </group>
       </group>
-    </group>
+    </>
   );
 };
 

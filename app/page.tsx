@@ -1,14 +1,22 @@
 'use client';
 
-import EverestExperience from "./components/EverestExperience";
+import CanvasLoader from "./components/common/CanvasLoader";
+import ScrollWrapper from "./components/common/ScrollWrapper";
+import Experience from "./components/experience";
+import Footer from "./components/footer";
+import Hero from "./components/hero";
 import CertificateModal from "./components/CertificateModal";
 
 const Home = () => {
   return (
     <>
-      <main className="bg-black min-h-screen">
-        <EverestExperience />
-      </main>
+      <CanvasLoader>
+        <ScrollWrapper>
+          <Hero />
+          <Experience />
+          <Footer />
+        </ScrollWrapper>
+      </CanvasLoader>
 
       <CertificateModal />
     </>

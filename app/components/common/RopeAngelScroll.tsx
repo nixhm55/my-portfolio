@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
@@ -448,10 +448,10 @@ export function RopeAngelScroll({
     const render = () => {
       const floorY = Math.max(40, trackHeight - FLOOR_MARGIN);
 
-      // The rope is exactly as long as the track at scroll 0 (straight, top to bottom).
-      // Scrolling feeds rope into the pile; at max scroll all of it is coiled.
-      const total = floorY;
-      const coil = progress * total;
+      // ഇവിടെയാണ് ഞാൻ ആ കോയിൽ ആനിമേഷൻ കളയാൻ ചെയ്ത ഒരേയൊരു മാറ്റം:
+      const currentTipY = Math.max(KNOT_OFFSET + 1, progress * floorY);
+      const total = currentTipY; 
+      const coil = 0; // ഇത് 0 ആയതുകൊണ്ട് കയർ ഇനി ചുരുണ്ട് കൂടുല്ല!
 
       const signature = `${round2(coil)}|${round2(total)}|${round2(trackHeight)}`;
       if (signature === lastSignature) return;
@@ -468,7 +468,7 @@ export function RopeAngelScroll({
         total,
         ropeX,
         cx,
-        floorY
+        currentTipY // Use currentTipY as the floor for the math
       );
 
       ctx.clearRect(0, 0, CANVAS_WIDTH, trackHeight);
