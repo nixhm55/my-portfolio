@@ -1,8 +1,8 @@
 'use client';
 
 import { useScroll } from "@react-three/drei";
-import { useFrame, useThree } from "@react-three/fiber";
-import { memo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import { memo } from "react";
 import { isMobile } from "react-device-detect";
 import * as THREE from "three";
 
@@ -14,12 +14,9 @@ const safeRange = (data: ReturnType<typeof useScroll> | null | undefined, from: 
 };
 
 const ScrollWrapper = ({ children }: { children: React.ReactNode | React.ReactNode[] }) => {
-  const { camera } = useThree();
   const data = useScroll();
   const isActive = usePortalStore((state) => !!state.activePortalId);
   const setScrollProgress = useScrollStore((state) => state.setScrollProgress);
-  const isActiveRef = useRef(isActive);
-  isActiveRef.current = isActive;
 
   useFrame((state, delta) => {
     if (!data?.range) return;
@@ -28,13 +25,17 @@ const ScrollWrapper = ({ children }: { children: React.ReactNode | React.ReactNo
     const b = safeRange(data, 0.3, 0.5);
     const d = safeRange(data, 0.85, 0.18);
 
-    if (!isActiveRef.current) {
+    // `state.camera` comes from the frame callback (not a hook return), which is
+    // the sanctioned way to drive the camera per frame.
+    const cam = state.camera;
+
+    if (!isActive) {
       // 🚨 FIX: ബാക്ക് അടിക്കുമ്പോൾ ക്യാമറ കൃത്യമായി X ആക്സിസിന്റെ സെന്ററിലേക്ക് (0) വരാൻ
-      camera.position.x = THREE.MathUtils.damp(camera.position.x, 0, 10, delta);
+      cam.position.x = THREE.MathUtils.damp(cam.position.x, 0, 10, delta);
       
-      camera.rotation.x = THREE.MathUtils.damp(camera.rotation.x, -0.5 * Math.PI * a, 8, delta);
-      camera.position.y = THREE.MathUtils.damp(camera.position.y, -37 * b, 10, delta);
-      camera.position.z = THREE.MathUtils.damp(camera.position.z, 5 + 10 * d, 10, delta);
+      cam.rotation.x = THREE.MathUtils.damp(cam.rotation.x, -0.5 * Math.PI * a, 8, delta);
+      cam.position.y = THREE.MathUtils.damp(cam.position.y, -37 * b, 10, delta);
+      cam.position.z = THREE.MathUtils.damp(cam.position.z, 5 + 10 * d, 10, delta);
 
       const offset = typeof data.offset === "number" ? data.offset : safeRange(data, 0, 1);
       setScrollProgress(offset);
@@ -42,13 +43,7 @@ const ScrollWrapper = ({ children }: { children: React.ReactNode | React.ReactNo
 
     if (!isMobile) {
       // മൗസ് അനുസരിച്ച് വർക്ക് ചെയ്യാനും, പോർട്ടലിൽ കയറുമ്പോൾ നേരെ നിൽക്കാനും
-      const targetRotationY = !isActiveRef.current ? -(state.pointer.x * Math.PI) / 90 : 0;
-      
-      camera.rotation.y = THREE.MathUtils.lerp(
-        camera.rotation.y,
-        targetRotationY,
-        0.05
-      );
+      const targetRotationY = !isActive ? -(state.pointer.x * Math.PI) / 90 : 0;      cam.rotation.y = THREE.MathUtils.lerp(cam.rotation.y, targetRotationY, 0.05);
     }
   });
 

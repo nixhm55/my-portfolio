@@ -22,6 +22,7 @@ const ProjectTile = ({ project, index, position, rotation, activeId, onClick, da
   const projectRef = useRef<THREE.Group>(null);
   const hoverAnimRef = useRef<gsap.core.Timeline | null>(null);
   const [desktopHovered, setDesktopHovered] = useState(false);
+  const hoverOffTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isProjectSectionActive = usePortalStore((state) => state.activePortalId === "projects");
   const hovered = isMobile ? activeId === index : desktopHovered;
   const isTop = datePosition === 'top';
@@ -67,7 +68,7 @@ const ProjectTile = ({ project, index, position, rotation, activeId, onClick, da
         .to(button.scale, { y: hovered ? 1 : 0, x: hovered ? 1 : 0 }, 0)
         .to(button.position, { z: hovered ? 0.3 : -1 }, 0);
     }
-  }, [hovered]);
+  }, [hovered, isTop, project.url]);
 
   useEffect(() => {
     if (projectRef.current) {
@@ -77,7 +78,7 @@ const ProjectTile = ({ project, index, position, rotation, activeId, onClick, da
         delay: isProjectSectionActive ? index * 0.1 : 0,
       });
     }
-  }, [isProjectSectionActive]);
+  }, [isProjectSectionActive, index]);
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
@@ -90,10 +91,38 @@ const ProjectTile = ({ project, index, position, rotation, activeId, onClick, da
 
   const handlePointerOver = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
+    cancelHoverOff();
     if (!isMobile && isProjectSectionActive) {
       setDesktopHovered(true);
     }
   };
+
+  // The VIEW button renders just outside the card's own hit plane, so simply
+  // moving toward it fired pointerout and cancelled the very hover that raises
+  // it — the button vanished before it could be clicked. The off-switch is
+  // delayed by one pointer travel, and re-armed while the pointer is over the
+  // button itself.
+  const cancelHoverOff = () => {
+    if (!hoverOffTimer.current) return;
+    clearTimeout(hoverOffTimer.current);
+    hoverOffTimer.current = null;
+  };
+
+  const scheduleHoverOff = () => {
+    if (isMobile || !isProjectSectionActive) return;
+    if (hoverOffTimer.current) return;
+    hoverOffTimer.current = setTimeout(() => {
+      hoverOffTimer.current = null;
+      setDesktopHovered(false);
+    }, 300);
+  };
+
+  useEffect(
+    () => () => {
+      if (hoverOffTimer.current) clearTimeout(hoverOffTimer.current);
+    },
+    [],
+  );
 
   return (
     <group
@@ -101,7 +130,7 @@ const ProjectTile = ({ project, index, position, rotation, activeId, onClick, da
       rotation={rotation}
       onClick={onClick}
       onPointerOver={handlePointerOver}
-      onPointerOut={() => !isMobile && isProjectSectionActive && setDesktopHovered(false)}>
+      onPointerOut={scheduleHoverOff}>
       <group ref={projectRef}>
         <mesh>
           <planeGeometry args={[4.2, 2, 1]} />
@@ -159,8 +188,12 @@ const ProjectTile = ({ project, index, position, rotation, activeId, onClick, da
             position={[1.3, -0.6, -1]}
             scale={[0, 0, 1]}
             onClick={handleClick}
-            onPointerOver={() => document.body.style.cursor = 'pointer'}
-            onPointerOut={() => document.body.style.cursor = 'auto'}>
+            onPointerOver={() => {
+              cancelHoverOff();
+              if (!isMobile && isProjectSectionActive) setDesktopHovered(true);
+              document.body.style.cursor = 'pointer';
+            }}
+            onPointerOut={() => { cancelHoverOff(); document.body.style.cursor = 'auto'; }}>
             <mesh>
               <boxGeometry args={[1.1, 0.4, 0.2]} />
               <meshBasicMaterial color="#222" />

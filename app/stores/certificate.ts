@@ -1,16 +1,19 @@
 import { create } from 'zustand';
+import { Certificate } from '../types';
 
 interface CertificateState {
   isOpen: boolean;
-  certificateImage: string;
-  openCertificate: (image?: string) => void;
+  /** The document currently being viewed; set by `openCertificate`. */
+  certificate: Certificate | null;
+  openCertificate: (certificate: Certificate) => void;
   closeCertificate: () => void;
 }
 
 export const useCertificateStore = create<CertificateState>((set) => ({
   isOpen: false,
-  certificateImage: '/my-certificate.jpg',
-  openCertificate: (image = '/my-certificate.jpg') =>
-    set({ isOpen: true, certificateImage: image }),
+  certificate: null,
+  openCertificate: (certificate) => set({ isOpen: true, certificate }),
+  // The document is kept on close so the modal's exit animation can keep
+  // rendering the texture it already loaded.
   closeCertificate: () => set({ isOpen: false }),
 }));

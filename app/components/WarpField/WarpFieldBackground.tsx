@@ -10,8 +10,12 @@ export type WarpFieldBackgroundProps = Partial<WarpFieldOptions> & {
 export function WarpFieldBackground({ className = "", ...props }: WarpFieldBackgroundProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const optionsRef = useRef({ ...WARP_FIELD_DEFAULTS, variant: "hyperspace" as const, ...props });
-  optionsRef.current = { ...WARP_FIELD_DEFAULTS, variant: "hyperspace" as const, ...props };
+  const options: WarpFieldOptions = { ...WARP_FIELD_DEFAULTS, variant: "hyperspace" as const, ...props };
+  const optionsRef = useRef(options);
+  useEffect(() => {
+    // Kept in sync post-commit so the rAF loop always reads the latest options.
+    optionsRef.current = options;
+  });
 
   useEffect(() => {
     const host = hostRef.current;
@@ -98,7 +102,7 @@ export function WarpFieldBackground({ className = "", ...props }: WarpFieldBackg
           display: "block",
           width: "100%",
           height: "100%",
-          filter: `hue-rotate(${optionsRef.current.hue}deg) saturate(${optionsRef.current.saturation}) brightness(${optionsRef.current.brightness})`,
+          filter: `hue-rotate(${options.hue}deg) saturate(${options.saturation}) brightness(${options.brightness})`,
         }}
       />
     </div>

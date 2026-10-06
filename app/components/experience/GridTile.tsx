@@ -6,6 +6,7 @@ import gsap from "gsap";
 import { useEffect, useRef } from 'react';
 import { isMobile } from 'react-device-detect';
 import * as THREE from 'three';
+import { useCertificateStore } from '../../stores/certificate';
 import { TriangleGeometry } from './Triangle';
 
 interface GridTileProps {
@@ -46,7 +47,7 @@ const GridTile = (props: GridTileProps) => {
         duration: 0.5,
       });
     }
-  }, []);
+  }, [id]);
 
   useFrame(() => {
     if (!isMobile || !data?.range || !titleRef.current) return;
@@ -55,16 +56,18 @@ const GridTile = (props: GridTileProps) => {
   });
 
   const handleEscape = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      exitPortal(true);
-    }
+    if (e.key !== 'Escape') return;
+    // The certificate viewer is the frontmost layer while it is open, so Escape
+    // belongs to it. Exiting the portal underneath would strand the viewer.
+    if (useCertificateStore.getState().isOpen) return;
+    exitPortal(true);
   };
 
   const portalInto = (e: React.MouseEvent) => {
     if (isActive || activePortalId) return;
     e.stopPropagation();
     setActivePortal(id);
-    document.body.style.cursor = 'auto';
+    document.body.style.setProperty('cursor', 'auto');
     const div = document.createElement('div');
 
     div.className = 'fixed close';

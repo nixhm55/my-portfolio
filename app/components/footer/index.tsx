@@ -34,24 +34,29 @@ const FooterLinkItem = ({ link }: { link: FooterLink }) => {
   };
 
   useEffect(() => {
-    if (!document.getElementById(`footer-link-${link.name}`)) {
-      const hoverDiv = document.createElement('div');
-      hoverDiv.id = `footer-link-${link.name}`;
-      hoverDiv.textContent = link.hoverText ?? link.name.toUpperCase();
-      hoverDiv.style.position = 'fixed';
-      hoverDiv.style.zIndex = '2';
-      hoverDiv.style.bottom = '0';
-      hoverDiv.style.opacity = '0';
-      hoverDiv.style.left = window.innerWidth / 2 + 'px';
-      hoverDiv.style.fontSize = '0.8rem';
-      hoverDiv.style.pointerEvents = 'none';
-      document.body.appendChild(hoverDiv);
-    }
-  }, [])
+    const hoverDiv = document.createElement('div');
+    hoverDiv.id = `footer-link-${link.name}`;
+    hoverDiv.textContent = link.hoverText ?? link.name.toUpperCase();
+    hoverDiv.style.position = 'fixed';
+    hoverDiv.style.zIndex = '2';
+    hoverDiv.style.bottom = '0';
+    hoverDiv.style.opacity = '0';
+    hoverDiv.style.left = window.innerWidth / 2 + 'px';
+    hoverDiv.style.fontSize = '0.8rem';
+    hoverDiv.style.pointerEvents = 'none';
+    document.body.appendChild(hoverDiv);
+
+    return () => {
+      // Remove the imperatively created node so remounts/unmounts never leak it.
+      gsap.killTweensOf(hoverDiv);
+      hoverDiv.remove();
+    };
+  }, [link.name, link.hoverText]);
 
   useEffect(() => {
     if (isMobile) return
 
+    const textEl = textRef.current;
     const hoverDiv = document.getElementById(`footer-link-${link.name}`);
 
     if (hovered) {
@@ -60,16 +65,16 @@ const FooterLinkItem = ({ link }: { link: FooterLink }) => {
       gsap.to(hoverDiv, { opacity: 0 });
     }
 
-    gsap.to(textRef.current, {
+    gsap.to(textEl, {
       letterSpacing: hovered ? 0.3 : 0,
       duration: 0.3,
     });
 
     return () => {
       gsap.killTweensOf(hoverDiv);
-      gsap.killTweensOf(textRef.current);
+      gsap.killTweensOf(textEl);
     }
-  }, [hovered]);
+  }, [hovered, link.name]);
 
   useCursor(hovered);
 

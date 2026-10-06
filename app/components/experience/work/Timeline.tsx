@@ -19,38 +19,11 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
   const [isHovered, setIsHovered] = useState(false);
   const openCertificate = useCertificateStore((state) => state.openCertificate);
 
-  // Check if this timeline point is Plus One or Plus Two
-  const hasCertificate = Boolean(
-    point.certificate ||
-    point.subtitle?.toLowerCase().includes('plus') ||
-    point.subtitle?.toLowerCase().includes('two') ||
-    point.subtitle?.toLowerCase().includes('one') ||
-    String(point.year).includes('2024') ||
-    String(point.year).includes('2025')
-  );
-
-  // Directly and safely assign the correct certificate image path
-  const certificatePath = useMemo(() => {
-    const sub = (point.subtitle || '').toLowerCase();
-    const yr = String(point.year || '');
-
-    // 1. Plus Two check
-    if (sub.includes('two') || yr.includes('2025')) {
-      return '/plus-two-certificate.jpg';
-    }
-
-    // 2. Plus One check
-    if (sub.includes('one') || yr.includes('2024')) {
-      return '/my-certificate.jpg';
-    }
-
-    // 3. Fallback
-    if (typeof point.certificate === 'string' && point.certificate.trim() !== '') {
-      return point.certificate;
-    }
-
-    return '/my-certificate.jpg';
-  }, [point]);
+  // The document is declared on the timeline data itself. Nothing is inferred
+  // from the title, subtitle or year — a point either carries a certificate or
+  // it does not.
+  const certificate = point.certificate;
+  const hasCertificate = Boolean(certificate?.src);
 
   const getPoint = useMemo(() => {
     switch (point.position) {
@@ -77,7 +50,7 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
   }), [textProps]);
 
   useEffect(() => {
-    if (!hasCertificate) return;
+    if (!certificate?.src) return;
 
     const checkHit = (clientX: number, clientY: number) => {
       if (!certGroupRef.current) return false;
@@ -106,7 +79,7 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
       const clientY = 'clientY' in e ? e.clientY : e.touches[0].clientY;
 
       if (checkHit(clientX, clientY)) {
-        openCertificate(certificatePath);
+        openCertificate(certificate);
       }
     };
 
@@ -130,7 +103,7 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
       window.removeEventListener('pointermove', onPointerMove);
       document.body.style.cursor = 'auto';
     };
-  }, [camera, raycaster, hasCertificate, certificatePath, openCertificate]);
+  }, [camera, raycaster, certificate, openCertificate]);
 
   return (
     <group position={point.point} scale={isMobile ? 0.35 : 0.6}>
@@ -181,8 +154,46 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
   );
 };
 
+/**
+ * Progressively reveals the dashed curve. It only mounts while the section is
+ * active, so deactivating unmounts it and discards the animation state — the
+ * same reset the previous `setState`-in-effect produced, without one.
+ */
+const DashedCurve = ({ curvePoints }: { curvePoints: THREE.Vector3[] }) => {
+  const [visiblePoints, setVisiblePoints] = useState<THREE.Vector3[]>([]);
+
+  useEffect(() => {
+    let index = 0;
+    let intervalId = 0;
+    const startTimer = window.setTimeout(() => {
+      intervalId = window.setInterval(() => {
+        const p = index++ / 100;
+        setVisiblePoints(curvePoints.slice(0, Math.max(1, Math.ceil(p * curvePoints.length))));
+        if (index > 100) window.clearInterval(intervalId);
+      }, 10);
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(startTimer);
+      window.clearInterval(intervalId);
+    };
+  }, [curvePoints]);
+
+  if (visiblePoints.length === 0) return null;
+
+  return (
+    <Line
+      points={visiblePoints}
+      color="white"
+      lineWidth={0.5}
+      dashed
+      dashSize={0.25}
+      gapSize={0.25}
+    />
+  );
+};
+
 const Timeline = ({ progress }: { progress: number }) => {
-  const { camera } = useThree();
   const isActive = usePortalStore((state) => state.activePortalId === 'work');
   const timeline = useMemo(() => WORK_TIMELINE, []);
 
@@ -191,17 +202,16 @@ const Timeline = ({ progress }: { progress: number }) => {
   const visibleCurvePoints = useMemo(() => curvePoints.slice(0, Math.max(1, Math.ceil(progress * curvePoints.length))), [curvePoints, progress]);
   const visibleTimelinePoints = useMemo(() => timeline.slice(0, Math.max(1, Math.round(progress * (timeline.length - 1) + 1))), [timeline, progress]);
 
-  const [visibleDashedCurvePoints, setVisibleDashedCurvePoints] = useState<THREE.Vector3[]>([]);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cameraTarget = useRef(new THREE.Vector3());
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     if (!isActive) return;
     curve.getPoint(progress, cameraTarget.current);
     const position = cameraTarget.current;
-    camera.position.x = THREE.MathUtils.damp(camera.position.x, (isMobile ? -1 : -2) + position.x, 4, delta);
-    camera.position.y = THREE.MathUtils.damp(camera.position.y, -39 + position.z, 4, delta);
-    camera.position.z = THREE.MathUtils.damp(camera.position.z, 13 - position.y, 4, delta);
+    const cam = state.camera;
+    cam.position.x = THREE.MathUtils.damp(cam.position.x, (isMobile ? -1 : -2) + position.x, 4, delta);
+    cam.position.y = THREE.MathUtils.damp(cam.position.y, -39 + position.z, 4, delta);
+    cam.position.z = THREE.MathUtils.damp(cam.position.z, 13 - position.y, 4, delta);
   });
 
   const groupRef = useRef<THREE.Group>(null);
@@ -222,38 +232,12 @@ const Timeline = ({ progress }: { progress: number }) => {
         delay: isActive ? 0.4 : 0,
       }, 0);
     }
-
-    if (isActive) {
-      let i = 0;
-      clearInterval(intervalRef.current!);
-      setTimeout(() => {
-        intervalRef.current = setInterval(() => {
-          const p = i++ / 100;
-          setVisibleDashedCurvePoints(curvePoints.slice(0, Math.max(1, Math.ceil(p * curvePoints.length))));
-          if (i > 100 && intervalRef.current) clearInterval(intervalRef.current);
-        }, 10);
-      }, 1000);
-    } else {
-      setVisibleDashedCurvePoints([]);
-      clearInterval(intervalRef.current!);
-    }
-
-    return () => clearInterval(intervalRef.current!);
   }, [isActive]);
 
   return (
     <group position={[0, -0.1, -0.1]}>
       <Line points={visibleCurvePoints} color="white" lineWidth={3} />
-      {visibleDashedCurvePoints.length > 0 && (
-        <Line
-          points={visibleDashedCurvePoints}
-          color="white"
-          lineWidth={0.5}
-          dashed
-          dashSize={0.25}
-          gapSize={0.25}
-        />
-      )}
+      {isActive && <DashedCurve curvePoints={curvePoints} />}
       <group ref={groupRef}>
         {visibleTimelinePoints.map((point, i) => {
           const diff = Math.min(2 * Math.max(i - (progress * (timeline.length - 1)), 0), 1);

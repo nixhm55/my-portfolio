@@ -94,7 +94,9 @@ export function CustomCursor() {
     };
 
     const onWindowOut = (e: MouseEvent) => {
-      if (!e.relatedTarget && !(e as any).toElement) {
+      // `toElement` is a legacy, non-standard field, so it needs an explicit shape.
+      const toElement = (e as MouseEvent & { toElement?: EventTarget | null }).toElement;
+      if (!e.relatedTarget && !toElement) {
         setVisibility(false);
       }
     };

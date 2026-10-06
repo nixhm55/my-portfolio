@@ -255,6 +255,11 @@ const buildStarfield = (): StarfieldParts => {
   return { points, lines, uniforms, geometry, material, lineGeometry, lineMaterial };
 };
 
+function bumpUniformClock(uniforms: { uTime: { value: number } }, delta: number): number {
+  uniforms.uTime.value += delta;
+  return uniforms.uTime.value;
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                  Component                                 */
 /* -------------------------------------------------------------------------- */
@@ -276,7 +281,7 @@ const ProjectsStarfield = ({ active }: ProjectsStarfieldProps) => {
   useFrame((_, delta) => {
     if (!active) return;
 
-    const time = (uniforms.uTime.value += Math.min(delta, 0.1));
+    const time = bumpUniformClock(uniforms, Math.min(delta, 0.1));
     const group = groupRef.current;
     if (!group) return;
 

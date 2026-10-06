@@ -25,8 +25,6 @@ const Experience = () => {
   const groupRef = useRef<THREE.Group>(null);
   const data = useScroll();
   const isActive = usePortalStore((state) => !!state.activePortalId);
-  const isActiveRef = useRef(isActive);
-  isActiveRef.current = isActive;
 
   useFrame((_, delta) => {
     if (!data?.range) return;
@@ -35,7 +33,7 @@ const Experience = () => {
     const e = data.range(0.7, 0.2);
     const group = groupRef.current;
 
-    if (group && !isActiveRef.current) {
+    if (group && !isActive) {
       group.position.y = d > 0 ? -1 : -30;
       group.visible = d > 0;
     }

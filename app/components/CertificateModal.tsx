@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useCertificateStore } from '../stores/certificate';
 
@@ -48,19 +48,21 @@ class SoundManager {
 const sounds = new SoundManager();
 
 export default function CertificateModal() {
-  const { isOpen, closeCertificate, certificateImage } = useCertificateStore();
+  const { isOpen, closeCertificate, certificate } = useCertificateStore();
+  const certificateSrc = certificate?.src;
   const [isClosing, setIsClosing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setIsClosing(false);
+      // `isClosing` cannot be true here: handleClose() clears it in the same
+      // timeout that closes the modal, so reopening never starts mid-close.
       sounds.playPop();
     }
   }, [isOpen]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (closeTimerRef.current) return;
     setIsClosing(true);
 
@@ -75,7 +77,21 @@ export default function CertificateModal() {
       setIsClosing(false);
       closeCertificate();
     }, 400);
-  };
+  }, [closeCertificate]);
+
+  // Escape closes the frontmost thing. Without this, Escape fell through to the
+  // portal's own handler: the section behind the modal was torn down while the
+  // modal stayed open, stranding the viewer on an orphaned overlay.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, handleClose]);
 
   useEffect(() => {
     return () => {
@@ -87,7 +103,7 @@ export default function CertificateModal() {
   }, []);
 
   useEffect(() => {
-    if (!isOpen || !containerRef.current) return;
+    if (!isOpen || !containerRef.current || !certificateSrc) return;
 
     const T = THREE;
     const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
@@ -110,7 +126,7 @@ export default function CertificateModal() {
       alpha: true,
       powerPreference: 'high-performance'
     });
-    renderer.outputColorSpace = (T as any).SRGBColorSpace || (T as any).sRGBEncoding;
+    renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.NoToneMapping;
 
     const scene = new T.Scene();
@@ -147,7 +163,7 @@ export default function CertificateModal() {
       blob(w * 0.52, h * 0.86, 420, 190, 'rgba(255,170,120,A)', '.10');
       const t = new T.CanvasTexture(c);
       t.mapping = T.EquirectangularReflectionMapping;
-      t.colorSpace = (T as any).SRGBColorSpace || (T as any).sRGBEncoding;
+      t.colorSpace = T.SRGBColorSpace;
       return t;
     }
 
@@ -245,9 +261,10 @@ export default function CertificateModal() {
     `;
 
     const texLoader = new T.TextureLoader();
-    const imagePath = certificateImage || '/my-certificate.jpg';
+    // The src comes straight from the timeline data; nothing is guessed here.
+    const imagePath = certificateSrc;
     const certTex = texLoader.load(imagePath, () => {
-      certTex.colorSpace = (T as any).SRGBColorSpace || (T as any).sRGBEncoding;
+      certTex.colorSpace = T.SRGBColorSpace;
       certTex.anisotropy = 4;
       certTex.needsUpdate = true;
     });
@@ -312,7 +329,7 @@ export default function CertificateModal() {
       x.fillStyle = g;
       x.fillRect(0, 0, s, s);
       const t = new T.CanvasTexture(c);
-      t.colorSpace = (T as any).SRGBColorSpace || (T as any).sRGBEncoding;
+      t.colorSpace = T.SRGBColorSpace;
       return t;
     })();
     const halo = new T.Mesh(
@@ -519,12 +536,15 @@ export default function CertificateModal() {
       haloTex.dispose();
       envTex.dispose();
     };
-  }, [isOpen, certificateImage]);
+  }, [isOpen, certificateSrc]);
 
   if (!isOpen) return null;
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={certificate?.label ?? 'Certificate'}
       style={{
         position: 'fixed',
         inset: 0,

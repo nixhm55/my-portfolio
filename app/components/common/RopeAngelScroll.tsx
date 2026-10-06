@@ -358,7 +358,6 @@ export function RopeAngelScroll({
     let lastTop = scroller.scrollTop;
     let deltaAccum = 0;
     let velocity = 0;
-    let scrolling = false;
 
     let stopTimer = 0;
     let lastSyncTime = 0;
@@ -531,7 +530,6 @@ export function RopeAngelScroll({
     /* ------------------------------ scrolling --------------------------- */
 
     const onStop = () => {
-      scrolling = false;
       velocity = 0;
       deltaAccum = 0;
     };
@@ -567,7 +565,6 @@ export function RopeAngelScroll({
       if (delta === 0 || overscroll) return;
 
       deltaAccum += delta;
-      scrolling = true;
 
       window.clearTimeout(stopTimer);
       stopTimer = window.setTimeout(onStop, STOP_DELAY_MS);

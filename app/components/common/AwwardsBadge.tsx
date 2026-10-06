@@ -31,8 +31,9 @@ const AwwardsBadge = () => {
 
   useEffect(() => {
     if (isPortalActive) return;
-    if (startAnimation && badgeRef.current) {
-      gsap.to(badgeRef.current, {
+    const badge = badgeRef.current;
+    if (startAnimation && badge) {
+      gsap.to(badge, {
         right: -scrollProgress * 1000,
         duration: 0,
         ease: 'power2.out',
@@ -40,14 +41,16 @@ const AwwardsBadge = () => {
     }
 
     return () => {
-      gsap.killTweensOf(badgeRef.current);
-    }
-  }, [startAnimation, scrollProgress]);
+      gsap.killTweensOf(badge);
+    };
+  }, [startAnimation, scrollProgress, isPortalActive]);
 
   useEffect(() => {
     if (!badgeRef.current) return;
     badgeRef.current.style.scale = isMobile ? '0.7' : '0.9';
-  }, [isMobile]);
+    // `isMobile` is a module-scope constant, so this runs once on mount,
+    // which is all it needs.
+  }, []);
 
   useEffect(() => {
     if (fillRef.current) {

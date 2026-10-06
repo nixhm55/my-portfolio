@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { isMobile } from "react-device-detect";
 import ProjectTile from "./ProjectTile";
 
@@ -10,10 +10,10 @@ const ProjectsCarousel = () => {
   const isActive = usePortalStore((state) => state.activePortalId === "projects");
   const activeId = isActive ? selectedId : null;
 
-  const onClick = (id: number) => {
+  const onClick = useCallback((id: number) => {
     if (!isMobile) return;
     setSelectedId(id === selectedId ? null : id);
-  };
+  }, [selectedId]);
 
   const tiles = useMemo(() => {
     const distance = 11;
@@ -56,7 +56,7 @@ const ProjectsCarousel = () => {
         />
       );
     });
-  }, [activeId]);
+  }, [activeId, onClick]);
 
   return (
     <group rotation={[0, -Math.PI / 12, 0]}>

@@ -23,9 +23,16 @@ const Projects = () => {
   const isActive = usePortalStore((state) => state.activePortalId === "projects");
   const data = useScroll();
   const cameraTweenRef = useRef<gsap.core.Tween | null>(null);
+  const scrollElementRef = useRef<HTMLElement | null>(null);
+
+  // Sync the imperative scroll container into a ref so effects mutate a ref
+  // value rather than the value returned by `useScroll()`.
+  useEffect(() => {
+    scrollElementRef.current = data?.el ?? null;
+  }, [data]);
 
   useEffect(() => {
-    const el = data?.el;
+    const el = scrollElementRef.current;
     if (el) {
       el.style.overflow = isActive ? "hidden" : "auto";
     }
@@ -48,8 +55,9 @@ const Projects = () => {
 
   useFrame((state, delta) => {
     if (!isActive || isMobile) return;
-    camera.rotation.y = THREE.MathUtils.lerp(camera.rotation.y, -(state.pointer.x * Math.PI) / 4, 0.03);
-    camera.position.z = THREE.MathUtils.damp(camera.position.z, CAMERA_Z - state.pointer.y, 7, delta);
+    const cam = state.camera;
+    cam.rotation.y = THREE.MathUtils.lerp(cam.rotation.y, -(state.pointer.x * Math.PI) / 4, 0.03);
+    cam.position.z = THREE.MathUtils.damp(cam.position.z, CAMERA_Z - state.pointer.y, 7, delta);
   });
 
   const wanderer = useMemo(() => (

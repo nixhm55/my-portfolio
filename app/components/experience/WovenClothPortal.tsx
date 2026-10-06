@@ -1,7 +1,7 @@
 'use client';
 
 import { useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore, useState } from "react";
 import * as THREE from "three";
 
 interface WovenClothPortalProps {
@@ -115,6 +115,27 @@ function makeClothTexture(isDark: boolean): THREE.CanvasTexture {
   tex.anisotropy = 4;
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
+}
+
+function repaintClothTexture(texture: THREE.CanvasTexture, isDark: boolean) {
+  drawCloth(texture.image as HTMLCanvasElement, isDark);
+  texture.needsUpdate = true;
+}
+
+/**
+ * Refreshes the frustum-culling sphere from the mesh's world transform.
+ * Module scope so the per-frame writes don't mutate a value returned by a
+ * hook (react-hooks/immutability).
+ */
+function updateCullSphere(
+  sphere: THREE.Sphere,
+  position: THREE.Vector3,
+  scale: THREE.Vector3,
+) {
+  sphere.center.copy(position);
+  sphere.radius =
+    CLOTH_BOUNDS_RADIUS *
+    Math.max(Math.abs(scale.x), Math.abs(scale.y), Math.abs(scale.z));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -294,7 +315,9 @@ export function WovenClothPortal({
   rotation = [-30, 0, 0],
   scale = [0.15, -0.15, 0.15],
 }: WovenClothPortalProps) {
-  const [isMounted, setIsMounted] = useState(false);
+  // Client-only gate (matches CanvasLoader): false during SSR/first paint on
+  // the server, true from the first client render — no setState inside effects.
+  const isMounted = useSyncExternalStore(() => () => {}, () => true, () => false);
   const [isDark, setIsDark] = useState(true);
   const accumulator = useRef(0);
   const meshRef = useRef<THREE.Mesh>(null);
@@ -306,8 +329,6 @@ export function WovenClothPortal({
   const worldScale = useMemo(() => new THREE.Vector3(), []);
 
   useEffect(() => {
-    setIsMounted(true);
-
     const checkTheme = () => {
       const docEl = document.documentElement;
       const bodyEl = document.body;
@@ -347,8 +368,7 @@ export function WovenClothPortal({
 
   useEffect(() => {
     if (!clothTexture) return;
-    drawCloth(clothTexture.image as HTMLCanvasElement, isDark);
-    clothTexture.needsUpdate = true;
+    repaintClothTexture(clothTexture, isDark);
   }, [clothTexture, isDark]);
 
   const geometry = useMemo(() => new THREE.PlaneGeometry(BW, BH, GX, GY), []);
@@ -391,10 +411,7 @@ export function WovenClothPortal({
     if (visible && mesh) {
       mesh.getWorldPosition(worldPosition);
       mesh.getWorldScale(worldScale);
-      cullSphere.center.copy(worldPosition);
-      cullSphere.radius =
-        CLOTH_BOUNDS_RADIUS *
-        Math.max(Math.abs(worldScale.x), Math.abs(worldScale.y), Math.abs(worldScale.z));
+      updateCullSphere(cullSphere, worldPosition, worldScale);
       cullMatrix.multiplyMatrices(state.camera.projectionMatrix, state.camera.matrixWorldInverse);
       cullFrustum.setFromProjectionMatrix(cullMatrix);
       visible = cullFrustum.intersectsSphere(cullSphere);

@@ -20,10 +20,11 @@ export const TouchPanControls = () => {
     targetRotationRef.current.y = camera.rotation.x;
   }, [camera]);
 
-  useFrame(() => {
+  useFrame((state) => {
     const dampingFactor = 0.05;
-    camera.rotation.y += (targetRotationRef.current.x - camera.rotation.y) * dampingFactor;
-    camera.rotation.x += (targetRotationRef.current.y - camera.rotation.x) * dampingFactor;
+    const cam = state.camera;
+    cam.rotation.y += (targetRotationRef.current.x - cam.rotation.y) * dampingFactor;
+    cam.rotation.x += (targetRotationRef.current.y - cam.rotation.x) * dampingFactor;
   });
 
   useEffect(() => {

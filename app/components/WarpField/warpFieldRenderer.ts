@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-export const WARP_FIELD_VARIANTS = ["streaks", "letters", "keycaps", "hyperspace"] as const;
+export const WARP_FIELD_VARIANTS = ["hyperspace"] as const;
 export type WarpFieldVariant = (typeof WARP_FIELD_VARIANTS)[number];
 
 export type WarpFieldOptions = {
@@ -29,8 +29,8 @@ export const WARP_FIELD_DEFAULTS: WarpFieldOptions = {
 
 const RECYCLE_Z = 200;
 const RESET_Z = -1800;
-const SPEED_SCALE: Record<WarpFieldVariant, number> = { streaks: 1, letters: 0.5, keycaps: 0.7, hyperspace: 2 };
-const BACKGROUND: Record<WarpFieldVariant, number> = { streaks: 0x02040a, letters: 0x02040a, keycaps: 0x03070c, hyperspace: 0x01020a };
+const SPEED_SCALE: Record<WarpFieldVariant, number> = { hyperspace: 2 };
+const BACKGROUND: Record<WarpFieldVariant, number> = { hyperspace: 0x01020a };
 
 type Layer = {
   update?: (step: number, time: number) => void;
@@ -220,9 +220,6 @@ function createHyperspaceLayer(group: THREE.Group, opacity: number): Layer {
 }
 
 const STREAK_SETTINGS: Record<WarpFieldVariant, StreakSettings> = {
-  streaks: { count: 100, radiusMin: 30, radiusSpread: 800, lengthMin: 50, lengthSpread: 150, palette: [0x10b981, 0x059669, 0x34d399, 0xffffff], opacityScale: 0.6 },
-  letters: { count: 80, radiusMin: 30, radiusSpread: 800, lengthMin: 40, lengthSpread: 120, palette: [0x10b981, 0x059669, 0x34d399, 0xffffff], opacityScale: 0.6 },
-  keycaps: { count: 60, radiusMin: 30, radiusSpread: 800, lengthMin: 40, lengthSpread: 140, palette: [0x10b981, 0x34d399, 0xa7f3d0, 0xffffff], opacityScale: 0.6 },
   hyperspace: { count: 140, radiusMin: 20, radiusSpread: 760, lengthMin: 120, lengthSpread: 300, palette: [0xffffff, 0xdbeafe, 0x93c5fd, 0x60a5fa], opacityScale: 0.7 },
 };
 
