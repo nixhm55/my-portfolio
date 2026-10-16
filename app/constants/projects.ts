@@ -19,29 +19,12 @@ import { Project } from "../types";
  * TODO: Move this to an API
  */
 export const PROJECTS: Project[] = [
+
   {
-    title: 'Wedding Invitation',
+    title: 'VOID',
     date: '    2026',
-    // Private client build. It has never been published, so there is no public
-    // address to link to — `url` is omitted rather than pointing somewhere dead.
-    subtext: 'Private client work — not published, no public link.',
+    subtext: 'Where music meets motion. An immersive listening experience shaped by liquid glass, cinematic visuals, and fluid interactions.',
+    url: 'https://void-six-cyan.vercel.app',
   },
-  {
-    title: 'Nebula Dashboard',
-    date: '    2025',
-    subtext: 'Placeholder: React · TypeScript · D3 analytics.',
-    url: 'https://example.com/',
-  },
-  {
-    title: 'Orbit Scroll Engine',
-    date: '    2025',
-    subtext: 'Placeholder: Three.js · R3F scroll choreography.',
-    url: 'https://example.com/',
-  },
-  {
-    title: 'Prism Design System',
-    date: '    2024',
-    subtext: 'Placeholder: component library · a11y · tokens.',
-    url: 'https://example.com/',
-  },
+ 
 ];

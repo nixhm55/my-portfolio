@@ -32,11 +32,14 @@ const ThemeSwitcher = () => {
 
   return (
     <div className={`fixed ${positionClass}`} ref={themeSwitcherRef} style={{ opacity: 0, zIndex: 2 }}>
-      <div className="flex items-center justify-center gap-2">
-        <a className="hover:cursor-pointer" onClick={toggleTheme}>
-          <Image src="icons/night-mode.svg" width={24} height={24} alt="night mode" loading="lazy" />
-        </a>
-      </div>
+      <button
+        type="button"
+        className="flex items-center justify-center gap-2"
+        onClick={toggleTheme}
+        aria-label="Toggle theme"
+      >
+        <Image src="icons/night-mode.svg" width={24} height={24} alt="Toggle theme" loading="lazy" />
+      </button>
     </div>
   );
 };
