@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" width="1440" height="900">
+    <rect width="1440" height="900" fill="#ece9e1"/>
+    <text x="72" y="52" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#333">Yasmi / Nisam</text>
+    <text x="72" y="420" font-family="Georgia, serif" font-size="120" fill="#181816">Yasmi</text>
+    <text x="72" y="530" font-family="Helvetica, Arial, sans-serif" font-size="28" fill="#4a4842">Translating mathematical structure into</text>
+    <text x="72" y="570" font-family="Helvetica, Arial, sans-serif" font-size="28" fill="#4a4842">Machine Learning &amp; Python</text>
+    <rect x="860" y="650" width="500" height="220" fill="#141413"/>
+  </svg>

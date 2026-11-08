@@ -1,0 +1,66 @@
+import { useFrame, useThree } from "@react-three/fiber";
+import { useEffect, useRef } from "react";
+
+/**
+ * Claude generated this. Very good code ngl.
+ *
+ * @returns
+ */
+export const TouchPanControls = () => {
+  const { camera } = useThree();
+  const touchStartRef = useRef({ x: 0, y: 0 });
+  const cameraRotationRef = useRef({ x: 0, y: 0 });
+  const targetRotationRef = useRef({ x: 0, y: 0 });
+  const isDraggingRef = useRef(false);
+
+  useEffect(() => {
+    cameraRotationRef.current.x = camera.rotation.y;
+    cameraRotationRef.current.y = camera.rotation.x;
+    targetRotationRef.current.x = camera.rotation.y;
+    targetRotationRef.current.y = camera.rotation.x;
+  }, [camera]);
+
+  useFrame((state) => {
+    const dampingFactor = 0.05;
+    const cam = state.camera;
+    cam.rotation.y += (targetRotationRef.current.x - cam.rotation.y) * dampingFactor;
+    cam.rotation.x += (targetRotationRef.current.y - cam.rotation.x) * dampingFactor;
+  });
+
+  useEffect(() => {
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      isDraggingRef.current = true;
+      touchStartRef.current.x = e.touches[0].clientX;
+      touchStartRef.current.y = e.touches[0].clientY;
+      cameraRotationRef.current.x = targetRotationRef.current.x;
+      cameraRotationRef.current.y = targetRotationRef.current.y;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDraggingRef.current || e.touches.length !== 1) return;
+
+      const deltaX = e.touches[0].clientX - touchStartRef.current.x;
+      const sensitivity = 0.005;
+      const newRotationY = cameraRotationRef.current.x + deltaX * sensitivity;
+      const maxRotation = Math.PI / 3;
+      targetRotationRef.current.x = Math.max(Math.min(newRotationY, maxRotation), -maxRotation);
+    };
+
+    const handleTouchEnd = () => {
+      isDraggingRef.current = false;
+    };
+
+    document.addEventListener("touchstart", handleTouchStart, { passive: true });
+    document.addEventListener("touchmove", handleTouchMove, { passive: true });
+    document.addEventListener("touchend", handleTouchEnd);
+
+    return () => {
+      document.removeEventListener("touchstart", handleTouchStart);
+      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, []);
+
+  return null;
+};

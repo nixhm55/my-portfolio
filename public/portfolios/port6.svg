@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" width="1440" height="900">
+  <rect width="1440" height="900" fill="#efece6"/>
+  <line x1="0" y1="74" x2="1440" y2="74" stroke="#181818" stroke-opacity="0.12" stroke-width="1"/>
+  <text x="88" y="46" font-family="Georgia, serif" font-size="22" font-weight="700" fill="#141413" letter-spacing="2">NISAM.</text>
+  <text x="520" y="44" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#555450" letter-spacing="1.5">01 OVERVIEW</text>
+  <text x="670" y="44" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#555450" letter-spacing="1.5">02 SYSTEMS</text>
+  <text x="810" y="44" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#555450" letter-spacing="1.5">03 ARCHIVE</text>
+  <text x="950" y="44" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#555450" letter-spacing="1.5">04 CONTACT</text>
+  <text x="1230" y="44" font-family="Courier, monospace" font-size="12" fill="#6e6d68" letter-spacing="1.5">SYS // 2026</text>
+
+  <circle cx="94" cy="166" r="4.5" fill="#c83e2b"/>
+  <text x="110" y="170" font-family="Courier, monospace" font-size="13" fill="#454440" letter-spacing="2.2">CREATIVE ENGINEERING &amp; INTERACTIVE DESIGN</text>
+
+  <text x="86" y="310" font-family="Helvetica, Arial, sans-serif" font-size="108" font-weight="700" fill="#141413" letter-spacing="-3"> Quiet form,</text>
+  <text x="86" y="430" font-family="Helvetica, Arial, sans-serif" font-size="108" font-weight="700" fill="#141413" letter-spacing="-3">living motion</text>
+  <text x="86" y="550" font-family="Georgia, serif" font-style="italic" font-size="104" fill="#c83e2b" letter-spacing="-1">in every detail.</text>
+
+  <text x="90" y="645" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#3a3935">A minimalist digital space exploring spatial interfaces,</text>
+  <text x="90" y="678" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#3a3935">fluid typography, and computational craft.</text>
+
+  <line x1="90" y1="775" x2="620" y2="775" stroke="#181818" stroke-opacity="0.15" stroke-width="1"/>
+  <text x="90" y="812" font-family="Courier, monospace" font-size="12" fill="#777670" letter-spacing="1.8">PORTFOLIO EDITION 06</text>
+  <text x="90" y="840" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="600" fill="#141413">Mohammed Nisam</text>
+
+  <g transform="translate(830, 230)">
+    <rect x="0" y="0" width="520" height="540" rx="8" fill="#e6e2da" stroke="#181818" stroke-opacity="0.12"/>
+    <circle cx="260" cy="270" r="170" fill="none" stroke="#181818" stroke-opacity="0.18" stroke-width="1.2" stroke-dasharray="4 4"/>
+    <circle cx="260" cy="270" r="110" fill="none" stroke="#181818" stroke-opacity="0.28" stroke-width="1.2"/>
+    <line x1="90" y1="270" x2="430" y2="270" stroke="#181818" stroke-opacity="0.2" stroke-width="1"/>
+    <line x1="260" y1="100" x2="260" y2="440" stroke="#181818" stroke-opacity="0.2" stroke-width="1"/>
+    <circle cx="338" cy="192" r="7" fill="#c83e2b"/>
+    <circle cx="182" cy="348" r="5" fill="#141413"/>
+    <circle cx="260" cy="270" r="5" fill="#141413"/>
+    <line x1="182" y1="348" x2="260" y2="270" stroke="#141413" stroke-opacity="0.5" stroke-width="1.5"/>
+    <line x1="260" y1="270" x2="338" y2="192" stroke="#c83e2b" stroke-opacity="0.8" stroke-width="1.8"/>
+    <text x="28" y="38" font-family="Courier, monospace" font-size="11" fill="#555450" letter-spacing="1.5">FIG 06 // SPATIAL HARMONY</text>
+  </g>
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" width="1440" height="900">
+    <rect width="1440" height="900" fill="#e8e4dc"/>
+    <text x="72" y="54" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#1e1e1c">NISAM</text>
+    <rect x="1220" y="28" width="148" height="38" rx="19" fill="none" stroke="#1e1e1c" stroke-opacity="0.3"/>
+    <text x="1252" y="52" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#1e1e1c">Get in touch</text>
+    <text x="84" y="330" font-family="Georgia, serif" font-size="92" fill="#161614">Designing</text>
+    <text x="84" y="435" font-family="Georgia, serif" font-size="92" fill="#161614">motion that</text>
+    <text x="84" y="540" font-family="Georgia, serif" font-style="italic" font-size="92" fill="#161614">feels like thinking.</text>
+    <text x="84" y="760" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#4e4c47">Frontend Architecture &amp; Interactive Systems</text>
+  </svg>
