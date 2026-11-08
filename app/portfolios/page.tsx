@@ -11,78 +11,33 @@ interface PortfolioItem {
 }
 
 export const PORTFOLIO_ITEMS: PortfolioItem[] = [
-  {
-    id: 1,
-    label: 'PORT 1',
-    url: 'https://port1-blond-five.vercel.app',
-    coverImage: '/portfolios/port1.svg',
-  },
-  {
-    id: 2,
-    label: 'PORT 2',
-    url: 'https://port2-amber-three.vercel.app',
-    coverImage: '/portfolios/port2.svg',
-  },
-  {
-    id: 3,
-    label: 'PORT 3',
-    url: 'https://port3-mauve.vercel.app',
-    coverImage: '/portfolios/port3.svg',
-  },
-  {
-    id: 4,
-    label: 'PORT 4',
-    url: 'https://port4-sigma-ten.vercel.app',
-    coverImage: '/portfolios/port4.svg',
-  },
-  {
-    id: 5,
-    label: 'PORT 5',
-    url: 'https://port5-brown.vercel.app',
-    coverImage: '/portfolios/port5.svg',
-  },
+  { id: 1, label: 'PORT 1', url: 'https://port1-blond-five.vercel.app' },
+  { id: 2, label: 'PORT 2', url: 'https://port2-amber-three.vercel.app' },
+  { id: 3, label: 'PORT 3', url: 'https://port3-mauve.vercel.app' },
+  { id: 4, label: 'PORT 4', url: 'https://port4-sigma-ten.vercel.app' },
+  { id: 5, label: 'PORT 5', url: 'https://port5-brown.vercel.app' },
   {
     id: 6,
     label: 'PORT 6',
     url: 'https://port6-b5028jdsw-nixhm.vercel.app',
     coverImage: '/portfolios/port6.svg',
   },
-  {
-    id: 7,
-    label: 'PORT 7',
-    url: 'https://port7-mu.vercel.app',
-    coverImage: '/portfolios/port7.svg',
-  },
+  { id: 7, label: 'PORT 7', url: 'https://port7-mu.vercel.app' },
   {
     id: 8,
     label: 'PORT 8',
     url: 'https://port8-topaz.vercel.app',
     coverImage: '/portfolios/port8.png',
   },
-  {
-    id: 9,
-    label: 'PORT 9',
-    url: 'https://port9-phi.vercel.app',
-    coverImage: '/portfolios/port9.svg',
-  },
-  {
-    id: 10,
-    label: 'PORT 10',
-    url: 'https://port10-chi.vercel.app',
-    coverImage: '/portfolios/port10.svg',
-  },
+  { id: 9, label: 'PORT 9', url: 'https://port9-phi.vercel.app' },
+  { id: 10, label: 'PORT 10', url: 'https://port10-chi.vercel.app' },
   {
     id: 11,
     label: 'PORT 11',
     url: 'https://port11-six.vercel.app',
     coverImage: '/portfolios/port11.png',
   },
-  {
-    id: 12,
-    label: 'PORT 12',
-    url: 'https://port12-lyart.vercel.app',
-    coverImage: '/portfolios/port12.svg',
-  },
+  { id: 12, label: 'PORT 12', url: 'https://port12-lyart.vercel.app' },
 ];
 
 const STARRY_NIGHT_URLS = [
@@ -134,9 +89,9 @@ const PortfolioCard = memo(({ item, scale }: PortfolioCardProps) => {
                 src={item.url}
                 title={item.label}
                 tabIndex={-1}
-                loading="lazy"
+                loading="eager"
                 scrolling="no"
-                className="pointer-events-none border-0 bg-[#0a0b10]"
+                className="pointer-events-none absolute top-0 left-0 border-0 bg-[#0a0b10]"
                 style={{
                   width: `${IFRAME_BASE_WIDTH}px`,
                   height: `${IFRAME_BASE_HEIGHT}px`,
@@ -169,7 +124,7 @@ export default function PortfoliosPage() {
   const gridRef = useRef<HTMLDivElement>(null);
   const bgLayerRef = useRef<HTMLDivElement>(null);
   const [verifiedBgUrl, setVerifiedBgUrl] = useState<string>(STARRY_NIGHT_URLS[0]);
-  const [cardScale, setCardScale] = useState(0.18);
+  const [cardScale, setCardScale] = useState(0.185);
 
   const count = PORTFOLIO_ITEMS.length;
 
@@ -229,7 +184,7 @@ export default function PortfoliosPage() {
     };
   }, []);
 
-  // Smooth Lenis-damped cursor parallax for The Starry Night background
+  // Smooth cursor parallax for The Starry Night background
   useEffect(() => {
     const bgEl = bgLayerRef.current;
     if (!bgEl) return;
@@ -283,7 +238,9 @@ export default function PortfoliosPage() {
     };
   }, []);
 
-  // Scale fallback iframes using the expanded hover width (rect.width + 20px) so there is never a black gap on the right side
+  // Compute iframe scale from the EXPANDED hover dimensions (width + 24px, height + 24px)
+  // so that when any card expands on hover by 10px on each side, the real homepage
+  // fills 100% of the hovered box edge-to-edge with zero black gap on the right.
   useEffect(() => {
     const gridEl = gridRef.current;
     if (!gridEl) return;
@@ -292,9 +249,12 @@ export default function PortfoliosPage() {
       const firstCell = gridEl.firstElementChild as HTMLElement | null;
       if (!firstCell) return;
       const rect = firstCell.getBoundingClientRect();
-      if (rect.width > 0) {
-        const hoveredWidth = rect.width + 20;
-        setCardScale(hoveredWidth / IFRAME_BASE_WIDTH);
+      if (rect.width > 0 && rect.height > 0) {
+        const expandedWidth = rect.width + 24;
+        const expandedHeight = rect.height + 24;
+        const scaleX = expandedWidth / IFRAME_BASE_WIDTH;
+        const scaleY = expandedHeight / IFRAME_BASE_HEIGHT;
+        setCardScale(Math.max(scaleX, scaleY));
       }
     };
 

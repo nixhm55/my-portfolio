@@ -1,7 +1,9 @@
 import { GoogleAnalytics } from "@next/third-parties/google";
 import type { Metadata, Viewport } from "next";
 import localFont from 'next/font/local';
+import "lenis/dist/lenis.css";
 import "./globals.css";
+import { LenisProvider } from "./components/common/LenisProvider";
 
 const soriaFont = localFont({
   src: "../public/soria-font.ttf",
@@ -78,7 +80,7 @@ export default function RootLayout({
       <body
         className={`${soriaFont.variable} ${vercettiFont.variable} font-sans antialiased`}
       >
-        {children}
+        <LenisProvider>{children}</LenisProvider>
       </body>
       <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID || ''}/>
     </html>
