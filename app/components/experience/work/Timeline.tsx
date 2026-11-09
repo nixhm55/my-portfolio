@@ -3,7 +3,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { usePortalStore } from "@stores";
 import { useCertificateStore } from "../../../stores/certificate";
 import gsap from "gsap";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { isMobile } from "react-device-detect";
 import * as THREE from "three";
 
@@ -12,8 +12,11 @@ import { WorkTimelinePoint } from "@types";
 
 const reusableLeft = new THREE.Vector3(-0.3, 0, -0.1);
 const reusableRight = new THREE.Vector3(0.3, 0, -0.1);
+const scratchMouse = new THREE.Vector2();
+const scratchWorldPos = new THREE.Vector3();
+const scratchScreenPos = new THREE.Vector3();
 
-const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number }) => {
+const TimelinePoint = memo(({ point, diff, isActive }: { point: WorkTimelinePoint; diff: number; isActive: boolean }) => {
   const { camera, raycaster } = useThree();
   const certGroupRef = useRef<THREE.Group>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -50,24 +53,23 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
   }), [textProps]);
 
   useEffect(() => {
-    if (!certificate?.src) return;
+    if (!isActive || !certificate?.src) return;
 
     const checkHit = (clientX: number, clientY: number) => {
       if (!certGroupRef.current) return false;
 
-      const mouse = new THREE.Vector2(
+      scratchMouse.set(
         (clientX / window.innerWidth) * 2 - 1,
         -(clientY / window.innerHeight) * 2 + 1
       );
-      raycaster.setFromCamera(mouse, camera);
+      raycaster.setFromCamera(scratchMouse, camera);
       const hits = raycaster.intersectObjects(certGroupRef.current.children, true);
       if (hits.length > 0) return true;
 
-      const worldPos = new THREE.Vector3();
-      certGroupRef.current.getWorldPosition(worldPos);
-      const screenPos = worldPos.clone().project(camera);
-      const sx = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
-      const sy = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
+      certGroupRef.current.getWorldPosition(scratchWorldPos);
+      scratchScreenPos.copy(scratchWorldPos).project(camera);
+      const sx = (scratchScreenPos.x * 0.5 + 0.5) * window.innerWidth;
+      const sy = (-scratchScreenPos.y * 0.5 + 0.5) * window.innerHeight;
 
       const dx = Math.abs(clientX - sx);
       const dy = Math.abs(clientY - sy);
@@ -85,7 +87,7 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
 
     const onPointerMove = (e: MouseEvent) => {
       const hit = checkHit(e.clientX, e.clientY);
-      setIsHovered(hit);
+      setIsHovered((prev) => (prev === hit ? prev : hit));
       if (hit) {
         document.body.style.cursor = 'pointer';
       } else {
@@ -101,9 +103,10 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
     return () => {
       window.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('pointermove', onPointerMove);
+      setIsHovered(false);
       document.body.style.cursor = 'auto';
     };
-  }, [camera, raycaster, certificate, openCertificate]);
+  }, [isActive, camera, raycaster, certificate, openCertificate]);
 
   return (
     <group position={point.point} scale={isMobile ? 0.35 : 0.6}>
@@ -152,7 +155,9 @@ const TimelinePoint = ({ point, diff }: { point: WorkTimelinePoint, diff: number
       </group>
     </group>
   );
-};
+});
+
+TimelinePoint.displayName = "TimelinePoint";
 
 /**
  * Progressively reveals the dashed curve. It only mounts while the section is
@@ -241,11 +246,11 @@ const Timeline = ({ progress }: { progress: number }) => {
       <group ref={groupRef}>
         {visibleTimelinePoints.map((point, i) => {
           const diff = Math.min(2 * Math.max(i - (progress * (timeline.length - 1)), 0), 1);
-          return <TimelinePoint point={point} key={i} diff={diff} />;
+          return <TimelinePoint point={point} key={i} diff={diff} isActive={isActive} />;
         })}
       </group>
     </group>
   );
 };
 
-export default Timeline;
+export default memo(Timeline);

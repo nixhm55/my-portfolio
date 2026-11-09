@@ -192,35 +192,62 @@ const buildStarfield = (): StarfieldParts => {
   });
 
   if (SHOW_CONSTELLATION_LINES) {
-    // Sparse nearest-neighbour graph between the brighter, closer stars so it
-    // reads as a constellation rather than a dense web.
+    // Hash anchors into link-sized cells so nearest-neighbour searches only
+    // inspect nearby stars instead of comparing every pair.
     const anchors: number[] = [];
+    const anchorCells = new Map<string, number[]>();
+    const cellCoordinate = (value: number) => Math.floor(value / LINE_MAX_LINK);
+    const cellKey = (x: number, y: number, z: number) => `${x},${y},${z}`;
+
     for (let i = 0; i < count; i += 1) {
-      const radius = positions[i].length();
+      const position = positions[i];
+      const radius = position.length();
       if (
         sizes[i] > MAX_SIZE * 0.6 &&
         radius > ANCHOR_INNER_RADIUS &&
         radius < ANCHOR_OUTER_RADIUS
       ) {
         anchors.push(i);
+        const key = cellKey(
+          cellCoordinate(position.x),
+          cellCoordinate(position.y),
+          cellCoordinate(position.z),
+        );
+        const cell = anchorCells.get(key);
+        if (cell) cell.push(i);
+        else anchorCells.set(key, [i]);
       }
     }
 
     const seen = new Set<number>();
     const linePositions: number[] = [];
+    const maxLinkSquared = LINE_MAX_LINK * LINE_MAX_LINK;
 
     for (let a = 0; a < anchors.length; a += 1) {
       const from = anchors[a];
+      const fromPosition = positions[from];
+      const cellX = cellCoordinate(fromPosition.x);
+      const cellY = cellCoordinate(fromPosition.y);
+      const cellZ = cellCoordinate(fromPosition.z);
       let nearest = -1;
-      let nearestDistance = LINE_MAX_LINK;
+      let nearestDistanceSquared = maxLinkSquared;
 
-      for (let b = 0; b < anchors.length; b += 1) {
-        if (b === a) continue;
-        const to = anchors[b];
-        const distance = positions[from].distanceTo(positions[to]);
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nearest = to;
+      for (let x = -1; x <= 1; x += 1) {
+        for (let y = -1; y <= 1; y += 1) {
+          for (let z = -1; z <= 1; z += 1) {
+            const candidates = anchorCells.get(cellKey(cellX + x, cellY + y, cellZ + z));
+            if (!candidates) continue;
+
+            for (let b = 0; b < candidates.length; b += 1) {
+              const to = candidates[b];
+              if (to === from) continue;
+              const distanceSquared = fromPosition.distanceToSquared(positions[to]);
+              if (distanceSquared < nearestDistanceSquared) {
+                nearestDistanceSquared = distanceSquared;
+                nearest = to;
+              }
+            }
+          }
         }
       }
 
@@ -229,7 +256,6 @@ const buildStarfield = (): StarfieldParts => {
       if (seen.has(key)) continue;
       seen.add(key);
 
-      const fromPosition = positions[from];
       const toPosition = positions[nearest];
       linePositions.push(
         fromPosition.x,

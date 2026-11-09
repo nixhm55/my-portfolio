@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { cancelFrame, frame } from 'motion';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
@@ -12,6 +13,7 @@ if (typeof window !== 'undefined') {
 export function LenisProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const lenis = new Lenis({
+      autoRaf: false,
       lerp: 0.09,
       smoothWheel: true,
       anchors: true,
@@ -22,15 +24,14 @@ export function LenisProvider({ children }: { children: React.ReactNode }) {
 
     lenis.on('scroll', ScrollTrigger.update);
 
-    const update = (time: number) => {
-      lenis.raf(time * 1000);
+    const update = ({ timestamp }: { timestamp: number }) => {
+      lenis.raf(timestamp);
     };
 
-    gsap.ticker.add(update);
-    gsap.ticker.lagSmoothing(0);
+    frame.setup(update, true);
 
     return () => {
-      gsap.ticker.remove(update);
+      cancelFrame(update);
       lenis.destroy();
     };
   }, []);

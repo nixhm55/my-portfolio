@@ -1,6 +1,7 @@
 'use client';
 
 import { useFrame } from "@react-three/fiber";
+import { usePortalStore } from "@stores";
 import { useEffect, useMemo, useRef, useSyncExternalStore, useState } from "react";
 import * as THREE from "three";
 
@@ -402,11 +403,10 @@ export function WovenClothPortal({
   useFrame((state, delta) => {
     if (reducedMotion) return;
 
-    // Visibility check: while the cloth is off-screen or the tab is
-    // backgrounded, skip the simulation and all buffer uploads entirely. The
-    // sphere is deliberately generous so the sim is already running before the
-    // cloth actually enters the view (no pop-in).
-    let visible = !document.hidden;
+    // Visibility check: while the cloth is off-screen, occluded by an active
+    // fullscreen portal, or the tab is backgrounded, skip the simulation and
+    // all buffer uploads entirely.
+    let visible = !document.hidden && !usePortalStore.getState().activePortalId;
     const mesh = meshRef.current;
     if (visible && mesh) {
       mesh.getWorldPosition(worldPosition);

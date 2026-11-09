@@ -1,9 +1,9 @@
 'use client';
 
-import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import { CustomCursor } from '../components/common/CustomCursor';
 
-interface PortfolioItem {
+export interface PortfolioItem {
   id: number;
   label: string;
   url: string;
@@ -48,72 +48,275 @@ const STARRY_NIGHT_URLS = [
 
 const IFRAME_BASE_WIDTH = 1440;
 const IFRAME_BASE_HEIGHT = 900;
+const IFRAME_LOAD_STAGGER_MS = 100;
+
+type ArtPlacementVariant =
+  | 'tree-hang'
+  | 'tree-rest'
+  | 'sky-float'
+  | 'ground-laid';
+
+interface ArtPlacement {
+  id: number;
+  variant: ArtPlacementVariant;
+  left: string;
+  top: string;
+  ropeLength?: number;
+  ropeAngle?: number;
+  baseTransform: string;
+}
+
+const ART_PLACEMENTS: Record<number, ArtPlacement> = {
+  // 1. Hanging on a rope pinned directly onto the upper Cypress tree trunk
+  1: {
+    id: 1,
+    variant: 'tree-hang',
+    left: '17.6%',
+    top: '33%',
+    ropeLength: 76,
+    ropeAngle: 0,
+    baseTransform: 'rotate(-4deg)',
+  },
+  // 2. Hanging on a rope pinned directly onto the middle Cypress tree trunk
+  2: {
+    id: 2,
+    variant: 'tree-hang',
+    left: '20.2%',
+    top: '50%',
+    ropeLength: 74,
+    ropeAngle: -3,
+    baseTransform: 'rotate(4deg)',
+  },
+  // 3. Lowered and resting on the left-lower Cypress tree bough
+  3: {
+    id: 3,
+    variant: 'tree-rest',
+    left: '15%',
+    top: '67%',
+    baseTransform: 'rotate(-7deg) skewX(-5deg)',
+  },
+  // 4. Lowered and resting at the lower-right base of the Cypress tree
+  4: {
+    id: 4,
+    variant: 'tree-rest',
+    left: '23.8%',
+    top: '82%',
+    baseTransform: 'rotate(6deg) skewX(4deg)',
+  },
+  // 5. Left-center sky swirl, tilted/skewed rectangle like PORT 12
+  5: {
+    id: 5,
+    variant: 'sky-float',
+    left: '36.5%',
+    top: '41%',
+    baseTransform: 'rotate(-6deg) skewX(-5deg)',
+  },
+  // 6. Upper-right sky swirl, tilted/skewed rectangle like PORT 12
+  6: {
+    id: 6,
+    variant: 'sky-float',
+    left: '78.5%',
+    top: '29%',
+    baseTransform: 'rotate(6deg) skewX(5deg)',
+  },
+  // 7. Center-left lower swirl, tilted/skewed rectangle staggered lower
+  7: {
+    id: 7,
+    variant: 'sky-float',
+    left: '43.5%',
+    top: '65%',
+    baseTransform: 'rotate(5deg) skewX(4deg)',
+  },
+  // 8. Center-right swirl, shifted higher up so cards are organically staggered
+  8: {
+    id: 8,
+    variant: 'sky-float',
+    left: '63.5%',
+    top: '52.5%',
+    baseTransform: 'rotate(-6deg) skewX(-5deg)',
+  },
+  // 9. Outer-right hills/sky, tilted/skewed rectangle staggered to the right
+  9: {
+    id: 9,
+    variant: 'sky-float',
+    left: '84%',
+    top: '63%',
+    baseTransform: 'rotate(7deg) skewX(5deg)',
+  },
+  // 10. Whole card laid tilted on the lower-left ground
+  10: {
+    id: 10,
+    variant: 'ground-laid',
+    left: '45%',
+    top: '85.5%',
+    baseTransform: 'perspective(580px) rotateX(38deg) rotateZ(-12deg)',
+  },
+  // 11. Whole card laid tilted on the lower-right ground
+  11: {
+    id: 11,
+    variant: 'ground-laid',
+    left: '68%',
+    top: '85.5%',
+    baseTransform: 'perspective(580px) rotateX(40deg) rotateZ(-14deg)',
+  },
+  // 12. Placed high up in the swirling central sky
+  12: {
+    id: 12,
+    variant: 'sky-float',
+    left: '56%',
+    top: '22%',
+    baseTransform: 'rotate(-7deg) skewX(-5deg)',
+  },
+};
 
 interface PortfolioCardProps {
   item: PortfolioItem;
+  placement: ArtPlacement;
   scale: number;
 }
 
-const PortfolioCard = memo(({ item, scale }: PortfolioCardProps) => {
+const PortfolioCard = memo(({ item, placement, scale }: PortfolioCardProps) => {
   const [imgError, setImgError] = useState(false);
+  const [iframeReady, setIframeReady] = useState(false);
   const hasStaticCover = Boolean(item.coverImage && !imgError);
+
+  useEffect(() => {
+    if (hasStaticCover) return;
+
+    const timeoutId = window.setTimeout(
+      () => setIframeReady(true),
+      (item.id - 1) * IFRAME_LOAD_STAGGER_MS,
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [hasStaticCover, item.id]);
+
+  const isHanging = placement.variant === 'tree-hang';
+  const isGroundLaid = placement.variant === 'ground-laid';
 
   return (
     <div
-      className="relative"
-      style={{
-        width: 'var(--card-w)',
-        height: 'var(--card-h)',
-      }}
+      style={
+        {
+          left: placement.left,
+          top: placement.top,
+          width: 'var(--card-w)',
+          height: 'var(--card-h)',
+          '--base-transform': placement.baseTransform,
+          '--base-radius': '14px',
+        } as React.CSSProperties
+      }
+      className="art-card-slot group absolute z-10 -translate-x-1/2 -translate-y-1/2 hover:z-50"
     >
-      <a
-        href={item.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={item.label}
-        className="group absolute inset-0 z-10 transform-gpu overflow-hidden rounded-[14px] border border-white/25 bg-[#090a0f] shadow-[0_10px_32px_rgba(0,0,0,0.75)] transition-[inset,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[inset] hover:z-30 hover:inset-[calc(-1*var(--card-gap))] hover:border-white/75 hover:shadow-[0_16px_48px_rgba(0,0,0,0.92)]"
-      >
-        <div className="relative h-full w-full overflow-hidden bg-[#0a0b10]">
-          {hasStaticCover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={item.coverImage}
-              alt={item.label}
-              decoding="async"
-              onError={() => setImgError(true)}
-              className="h-full w-full transform-gpu object-cover object-top opacity-35 brightness-75 transition-[transform,opacity,filter] duration-300 ease-out group-hover:scale-[1.03] group-hover:opacity-100 group-hover:brightness-100"
-            />
-          ) : (
-            <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-35 brightness-75 transition-[transform,opacity,filter] duration-300 ease-out group-hover:scale-[1.03] group-hover:opacity-100 group-hover:brightness-100">
-              <iframe
-                src={item.url}
-                title={item.label}
-                tabIndex={-1}
-                loading="eager"
-                scrolling="no"
-                className="pointer-events-none absolute top-0 left-0 border-0 bg-[#0a0b10]"
-                style={{
-                  width: `${IFRAME_BASE_WIDTH}px`,
-                  height: `${IFRAME_BASE_HEIGHT}px`,
-                  transform: `scale(${scale})`,
-                  transformOrigin: 'top left',
-                }}
-              />
-            </div>
-          )}
-
-          {/* Dark overlay that lifts smoothly on hover */}
-          <div className="pointer-events-none absolute inset-0 z-20 bg-black/55 transition-opacity duration-300 ease-out group-hover:opacity-0" />
-
-          {/* Corner label in Soria font that vanishes on hover */}
-          <span
-            style={{ fontFamily: 'var(--font-soria), Georgia, serif' }}
-            className="pointer-events-none absolute bottom-2.5 left-3.5 z-30 text-[1.5rem] leading-none tracking-wide text-white/95 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] transition-opacity duration-200 ease-out group-hover:opacity-0 sm:text-[1.75rem]"
+      {/* Hanging Rope pinned directly onto the front of the Cypress Tree */}
+      {isHanging && placement.ropeLength && (
+        <div
+          className="pointer-events-none absolute left-1/2 -z-10 origin-bottom -translate-x-1/2 transition-opacity duration-300 group-hover:opacity-40"
+          style={{
+            bottom: '94%',
+            height: `${placement.ropeLength}px`,
+            width: '56px',
+            transform: `rotate(${placement.ropeAngle || 0}deg)`,
+          }}
+        >
+          <svg
+            viewBox="0 0 56 100"
+            preserveAspectRatio="none"
+            className="h-full w-full overflow-visible"
           >
-            {item.label}
-          </span>
+            {/* Pin fixed directly into the Cypress tree trunk */}
+            <circle
+              cx="28"
+              cy="4"
+              r="4.5"
+              fill="#2b1b0e"
+              stroke="#d8ab70"
+              strokeWidth="1.6"
+            />
+            {/* Main braided hemp rope */}
+            <path
+              d="M28 6 L28 74"
+              fill="none"
+              stroke="#c4975c"
+              strokeWidth="2.8"
+              strokeLinecap="round"
+              strokeDasharray="4 2"
+            />
+            {/* Harness strings holding the portfolio card */}
+            <path
+              d="M28 74 L10 99 M28 74 L46 99"
+              fill="none"
+              stroke="#a87c44"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+            <circle cx="28" cy="74" r="3" fill="#d8ab70" />
+          </svg>
         </div>
-      </a>
+      )}
+
+      {/* Subtle ground shadow for cards laid on the terrain */}
+      {isGroundLaid && (
+        <div className="pointer-events-none absolute -bottom-2.5 left-1/2 -z-10 h-5 w-[104%] -translate-x-1/2 rounded-full bg-black/70 blur-md transition-opacity duration-300 group-hover:opacity-0" />
+      )}
+
+      {/* Main interactive portfolio card */}
+      <div className="art-card-inner relative h-full w-full transform-gpu transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]">
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={item.label}
+          className="art-card-link absolute inset-0 z-10 block transform-gpu overflow-hidden border border-white/35 bg-[#090a0f] shadow-[0_14px_34px_rgba(0,0,0,0.82)] transition-[border-radius,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:border-white/90 group-hover:shadow-[0_20px_54px_rgba(0,0,0,0.95)]"
+        >
+          <div className="relative h-full w-full overflow-hidden bg-[#0a0b10]">
+            {hasStaticCover ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={item.coverImage}
+                alt={item.label}
+                decoding="async"
+                loading="lazy"
+                onError={() => setImgError(true)}
+                className="h-full w-full transform-gpu object-cover object-top opacity-78 brightness-95 transition-[transform,opacity,filter] duration-300 ease-out group-hover:scale-[1.03] group-hover:opacity-100 group-hover:brightness-100"
+              />
+            ) : (
+              <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-78 brightness-95 transition-[transform,opacity,filter] duration-300 ease-out group-hover:scale-[1.03] group-hover:opacity-100 group-hover:brightness-100">
+                <iframe
+                  src={iframeReady ? item.url : undefined}
+                  title={item.label}
+                  tabIndex={-1}
+                  loading="lazy"
+                  scrolling="no"
+                  className="pointer-events-none absolute top-0 left-0 border-0 bg-[#0a0b10]"
+                  style={{
+                    width: `${IFRAME_BASE_WIDTH}px`,
+                    height: `${IFRAME_BASE_HEIGHT}px`,
+                    transform: `scale(${scale})`,
+                    transformOrigin: 'top left',
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Subtle lighting glaze */}
+            <div
+              className="pointer-events-none absolute inset-0 z-20 transition-opacity duration-300 ease-out group-hover:opacity-0"
+              style={{
+                background:
+                  'linear-gradient(180deg, rgba(10, 16, 36, 0.24) 0%, rgba(5, 8, 20, 0.44) 100%)',
+              }}
+            />
+
+            {/* Corner label in Soria font that vanishes on hover */}
+            <span
+              style={{ fontFamily: 'var(--font-soria), Georgia, serif' }}
+              className="pointer-events-none absolute bottom-2 left-3 z-30 text-[1.25rem] leading-none tracking-wide text-white/95 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] [text-shadow:0_2px_10px_rgba(0,0,0,0.95),0_1px_3px_rgba(0,0,0,1)] transition-opacity duration-200 ease-out group-hover:opacity-0 sm:text-[1.45rem]"
+            >
+              {item.label}
+            </span>
+          </div>
+        </a>
+      </div>
     </div>
   );
 });
@@ -121,41 +324,14 @@ const PortfolioCard = memo(({ item, scale }: PortfolioCardProps) => {
 PortfolioCard.displayName = 'PortfolioCard';
 
 export default function PortfoliosPage() {
-  const gridRef = useRef<HTMLDivElement>(null);
-  const bgLayerRef = useRef<HTMLDivElement>(null);
-  const [verifiedBgUrl, setVerifiedBgUrl] = useState<string>(STARRY_NIGHT_URLS[0]);
-  const [cardScale, setCardScale] = useState(0.185);
+  const sceneRef = useRef<HTMLDivElement>(null);
+  const [verifiedBgUrl, setVerifiedBgUrl] = useState<string>(
+    STARRY_NIGHT_URLS[0]
+  );
+  const [cardScale, setCardScale] = useState(0.16);
 
-  const count = PORTFOLIO_ITEMS.length;
-
-  const { columns, cardW, cardH } = useMemo(() => {
-    if (count <= 12) {
-      return {
-        columns: 4,
-        cardW: 'clamp(175px, 14vw, 245px)',
-        cardH: 'clamp(86px, 6.8vw, 120px)',
-      };
-    }
-    if (count <= 20) {
-      return {
-        columns: 5,
-        cardW: 'clamp(155px, 12.5vw, 215px)',
-        cardH: 'clamp(76px, 6vw, 105px)',
-      };
-    }
-    if (count <= 30) {
-      return {
-        columns: 6,
-        cardW: 'clamp(140px, 11vw, 190px)',
-        cardH: 'clamp(68px, 5.3vw, 92px)',
-      };
-    }
-    return {
-      columns: 8,
-      cardW: 'clamp(120px, 9.5vw, 165px)',
-      cardH: 'clamp(58px, 4.6vw, 80px)',
-    };
-  }, [count]);
+  const cardW = 'clamp(145px, 12vw, 210px)';
+  const cardH = 'clamp(78px, 6vw, 108px)';
 
   useEffect(() => {
     let cancelled = false;
@@ -184,10 +360,11 @@ export default function PortfoliosPage() {
     };
   }, []);
 
-  // Smooth cursor parallax for The Starry Night background
+  // Unified cursor parallax for both the Starry Night painting and the anchored cards
+  // so the hanging rope pins stay 100% locked onto the Cypress tree when moving the cursor.
   useEffect(() => {
-    const bgEl = bgLayerRef.current;
-    if (!bgEl) return;
+    const sceneEl = sceneRef.current;
+    if (!sceneEl) return;
 
     let targetX = 0;
     let targetY = 0;
@@ -196,8 +373,8 @@ export default function PortfoliosPage() {
     let rafId: number | null = null;
     let lastTime = performance.now();
 
-    const maxShiftX = 28;
-    const maxShiftY = 18;
+    const maxShiftX = 20;
+    const maxShiftY = 14;
 
     const animate = (now: number) => {
       const dt = Math.min((now - lastTime) / 1000, 0.05);
@@ -207,7 +384,7 @@ export default function PortfoliosPage() {
       currentX += (targetX - currentX) * factor;
       currentY += (targetY - currentY) * factor;
 
-      bgEl.style.transform = `translate3d(${currentX.toFixed(2)}px, ${currentY.toFixed(2)}px, 0) scale(1.14)`;
+      sceneEl.style.transform = `translate3d(${currentX.toFixed(2)}px, ${currentY.toFixed(2)}px, 0)`;
 
       if (
         Math.abs(targetX - currentX) > 0.05 ||
@@ -238,84 +415,80 @@ export default function PortfoliosPage() {
     };
   }, []);
 
-  // Compute iframe scale from the EXPANDED hover dimensions (width + 24px, height + 24px)
-  // so that when any card expands on hover by 10px on each side, the real homepage
-  // fills 100% of the hovered box edge-to-edge with zero black gap on the right.
+  // Compute iframe scale once on mount and on window resize
   useEffect(() => {
-    const gridEl = gridRef.current;
-    if (!gridEl) return;
-
     const updateScale = () => {
-      const firstCell = gridEl.firstElementChild as HTMLElement | null;
-      if (!firstCell) return;
-      const rect = firstCell.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        const expandedWidth = rect.width + 24;
-        const expandedHeight = rect.height + 24;
-        const scaleX = expandedWidth / IFRAME_BASE_WIDTH;
-        const scaleY = expandedHeight / IFRAME_BASE_HEIGHT;
-        setCardScale(Math.max(scaleX, scaleY));
-      }
+      const vw = window.innerWidth;
+      const estimatedW = Math.min(Math.max(vw * 0.12, 145), 210) * 1.2;
+      const estimatedH = Math.min(Math.max(vw * 0.06, 78), 108) * 1.2;
+      const scaleX = estimatedW / IFRAME_BASE_WIDTH;
+      const scaleY = estimatedH / IFRAME_BASE_HEIGHT;
+      setCardScale(Math.max(scaleX, scaleY));
     };
 
     updateScale();
-    const observer = new ResizeObserver(updateScale);
-    observer.observe(gridEl);
-    return () => observer.disconnect();
-  }, [columns]);
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, []);
 
   return (
     <main
       style={
         {
-          '--card-gap': '10px',
           '--card-w': cardW,
           '--card-h': cardH,
         } as React.CSSProperties
       }
-      className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-[#060b19] p-4 select-none"
+      className="relative h-screen w-screen overflow-hidden bg-[#07112b] select-none"
     >
       <CustomCursor />
 
-      {/* Expanded, cursor-reactive, subtly dimmed Vincent van Gogh - The Starry Night background */}
-      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-        <div
-          ref={bgLayerRef}
-          className="relative h-full w-full transform-gpu will-change-transform"
-          style={{
-            transform: 'translate3d(0px, 0px, 0) scale(1.14)',
-            background:
-              'radial-gradient(circle at 86% 20%, rgba(247,214,90,0.45) 0%, transparent 18%), radial-gradient(circle at 45% 40%, rgba(110,156,219,0.35) 0%, transparent 32%), linear-gradient(180deg, #0b1536 0%, #162d66 45%, #1f4587 75%, #0e1b38 100%)',
-          }}
-        >
-          <div
-            className="absolute inset-0 bg-cover bg-center brightness-[0.62] contrast-[1.08] saturate-[1.06]"
-            style={{
-              backgroundImage: `url("${verifiedBgUrl}")`,
-            }}
-          />
-        </div>
-        {/* Subtle dim layer so the 12 portfolio boxes stand out clearly in the foreground */}
-        <div className="absolute inset-0 bg-black/42" />
-      </div>
-
-      {/* Portfolio Boxes Grid */}
-      <div
-        ref={gridRef}
-        className="relative z-10"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${columns}, var(--card-w))`,
-          gap: 'var(--card-gap)',
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .art-card-inner {
+              transform: var(--base-transform);
+            }
+            .art-card-slot:hover .art-card-inner {
+              transform: translate3d(0, -6px, 0) scale(1.2) rotate(0deg);
+            }
+            .art-card-link {
+              border-radius: var(--base-radius);
+            }
+            .art-card-slot:hover .art-card-link {
+              border-radius: 14px;
+            }
+          `,
         }}
+      />
+
+      {/* Unified Parallax Scene: Painting + Portfolio Cards move 1:1 together */}
+      <div
+        ref={sceneRef}
+        className="relative h-full w-full transform-gpu will-change-transform"
       >
-        {PORTFOLIO_ITEMS.map((item) => (
-          <PortfolioCard
-            key={item.id}
-            item={item}
-            scale={cardScale}
-          />
-        ))}
+        {/* Slightly oversized painting buffer so edges never show during cursor parallax */}
+        <div
+          className="pointer-events-none absolute -inset-8 z-0 bg-cover bg-center brightness-[0.98] contrast-[1.08] saturate-[1.18]"
+          style={{
+            backgroundImage: `url("${verifiedBgUrl}")`,
+          }}
+        />
+
+        {/* Static Art Stage locked to the painting coordinate space */}
+        <div className="relative z-10 h-full w-full">
+          {PORTFOLIO_ITEMS.map((item) => {
+            const placement = ART_PLACEMENTS[item.id] || ART_PLACEMENTS[1];
+            return (
+              <PortfolioCard
+                key={item.id}
+                item={item}
+                placement={placement}
+                scale={cardScale}
+              />
+            );
+          })}
+        </div>
       </div>
     </main>
   );

@@ -35,10 +35,11 @@ const ThemeSwitcher = () => {
       <button
         type="button"
         className="flex items-center justify-center gap-2"
+        data-shery-magnet
         onClick={toggleTheme}
         aria-label="Toggle theme"
       >
-        <Image src="icons/night-mode.svg" width={24} height={24} alt="Toggle theme" loading="lazy" />
+        <Image src="icons/night-mode.svg" width={24} height={24} alt="Toggle theme" loading="lazy" data-motion-icon />
       </button>
     </div>
   );

@@ -2,18 +2,11 @@
 
 import { useScroll } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import Lenis from "lenis";
-import { memo, useEffect, useRef } from "react";
+import { memo, useRef } from "react";
 import { isMobile } from "react-device-detect";
 import * as THREE from "three";
 
 import { usePortalStore, useScrollStore } from "@stores";
-
-if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger);
-}
 
 const safeRange = (
   data: ReturnType<typeof useScroll> | null | undefined,
@@ -36,56 +29,6 @@ const ScrollWrapper = ({
   const isActive = usePortalStore((state) => !!state.activePortalId);
   const setScrollProgress = useScrollStore((state) => state.setScrollProgress);
   const lastReportedOffset = useRef(-1);
-  const lenisRef = useRef<Lenis | null>(null);
-
-  // Attach official Lenis smooth scroll instance to the Three.js ScrollControls container (data.el)
-  useEffect(() => {
-    const el = data?.el;
-    if (!el) return;
-
-    const contentEl =
-      (el.lastElementChild as HTMLElement | null) ??
-      (el.firstElementChild as HTMLElement | null) ??
-      el;
-
-    const lenis = new Lenis({
-      wrapper: el,
-      content: contentEl,
-      eventsTarget: el,
-      lerp: 0.085,
-      smoothWheel: true,
-      syncTouch: false,
-      autoResize: true,
-      overscroll: false,
-    });
-
-    lenisRef.current = lenis;
-    lenis.on("scroll", ScrollTrigger.update);
-
-    const onTick = (time: number) => {
-      lenis.raf(time * 1000);
-    };
-
-    gsap.ticker.add(onTick);
-    gsap.ticker.lagSmoothing(0);
-
-    return () => {
-      gsap.ticker.remove(onTick);
-      lenis.destroy();
-      lenisRef.current = null;
-    };
-  }, [data?.el]);
-
-  // Pause Lenis scrolling while a 3D portal (such as Projects or Work) is active
-  useEffect(() => {
-    const lenis = lenisRef.current;
-    if (!lenis) return;
-    if (isActive) {
-      lenis.stop();
-    } else {
-      lenis.start();
-    }
-  }, [isActive]);
 
   useFrame((state, delta) => {
     if (!data?.range) return;

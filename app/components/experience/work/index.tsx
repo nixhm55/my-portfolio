@@ -1,6 +1,5 @@
 'use client';
 
-import { ScrollControls } from '@react-three/drei';
 import { usePortalStore, useScrollStore } from '@stores';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
@@ -9,7 +8,9 @@ import Timeline from './Timeline';
 
 const Work = () => {
   const isActive = usePortalStore((state) => state.activePortalId === 'work');
-  const scrollProgress = useScrollStore((state) => state.scrollProgress);
+  const scrollProgress = useScrollStore((state) =>
+     isActive ? state.scrollProgress : 0
+  );
   const setScrollProgress = useScrollStore((state) => state.setScrollProgress);
   const progressRef = useRef(0);
 
@@ -72,10 +73,8 @@ const Work = () => {
         <planeGeometry args={[4, 4, 1]} />
         <shadowMaterial opacity={0.1} />
       </mesh>
-      <ScrollControls style={{ zIndex: -1 }} pages={2} maxSpeed={0.4}>
-        <Memory scale={memoryScale} position={memoryPosition} />
-        <Timeline progress={isActive ? scrollProgress : 0} />
-      </ScrollControls>
+      <Memory scale={memoryScale} position={memoryPosition} />
+      <Timeline progress={isActive ? scrollProgress : 0} />
     </group>
   );
 };

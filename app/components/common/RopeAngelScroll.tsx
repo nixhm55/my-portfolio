@@ -104,8 +104,11 @@ function getRootScroller(): HTMLElement {
   );
 }
 
-function readProgress(element: HTMLElement): number {
-  const range = element.scrollHeight - element.clientHeight;
+function computeScrollRange(element: HTMLElement): number {
+  return Math.max(0, element.scrollHeight - element.clientHeight);
+}
+
+function readProgressWithRange(element: HTMLElement, range: number): number {
   if (range <= 1) return 0;
   return clamp(element.scrollTop / range, 0, 1);
 }
@@ -120,14 +123,9 @@ function isViewportSizedScroller(element: HTMLElement): boolean {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Rope geometry                                                              */
+/* Rope geometry (Pooled to avoid per-frame GC allocations)                   */
 /* -------------------------------------------------------------------------- */
 
-/**
- * A piece of the rope that is painted in one go. Pieces are painted from the
- * rope tip (bottom of the pile) towards the top end, so newer loops always lie
- * on top of older ones, like a real pile of rope.
- */
 interface RopeGroup {
   /** Flat polyline: x0, y0, x1, y1, ... */
   path: number[];
@@ -147,6 +145,7 @@ interface Knot {
 
 interface RopeShape {
   groups: RopeGroup[];
+  groupCount: number;
   knot: Knot;
   /** Y of the free top end of the rope. */
   topY: number;
@@ -154,22 +153,31 @@ interface RopeShape {
   straightStartY: number;
 }
 
-/**
- * Builds the rope, which has a constant length `total`.
- *
- *  - `coil` is the length of rope that already lies in the pile.
- *  - The rest (`total - coil`) hangs straight up from the pile to the free top end.
- *
- * At scroll 0, coil = 0: the rope is a straight line from the top of the screen
- * down to the floor. While scrolling, rope is fed into the pile at the bottom,
- * so the free top end travels down. At max scroll the whole rope is in the pile.
- *
- * The path is built from the TIP (on the floor) upwards. Loops are anchored to
- * the tip, so existing loops never move while new rope is added on top, and
- * uncoiling peels the top loop first. Braid chevrons sit at fixed arc-length
- * positions measured from the tip, which makes the braid flow downwards while
- * the rope is fed into the pile.
- */
+const groupPool: RopeGroup[] = [];
+const activeGroups: RopeGroup[] = [];
+const sharedKnot: Knot = { x: 0, y: 0, tx: 0, ty: -1 };
+const sharedRopeShape: RopeShape = {
+  groups: activeGroups,
+  groupCount: 0,
+  knot: sharedKnot,
+  topY: 0,
+  straightStartY: 0,
+};
+
+function acquireGroup(index: number): RopeGroup {
+  let g = groupPool[index];
+  if (!g) {
+    g = { path: [], dark: [], light: [] };
+    groupPool[index] = g;
+  } else {
+    g.path.length = 0;
+    g.dark.length = 0;
+    g.light.length = 0;
+  }
+  activeGroups[index] = g;
+  return g;
+}
+
 function buildRope(
   coil: number,
   total: number,
@@ -177,9 +185,6 @@ function buildRope(
   cx: number,
   floorY: number
 ): RopeShape {
-  const newGroup = (): RopeGroup => ({ path: [], dark: [], light: [] });
-
-  // Slightly irregular loops so the pile looks organic, not like a perfect spring.
   const radiusAt = (phi: number) => {
     const turns = phi / (Math.PI * 2);
     const mound =
@@ -188,7 +193,6 @@ function buildRope(
     return mound * (1 + 0.08 * Math.sin(phi * 0.37 + 1.3) + 0.04 * Math.sin(phi * 0.91 + 0.2));
   };
   const helixX = (phi: number) => {
-    // The first turn starts exactly on the rope axis, then the pile centre slides left.
     const s = smooth01(phi / Math.PI);
     const centre = ropeX + (cx - ropeX) * s + 1.3 * s * Math.sin(phi * 0.53 + 0.4);
     return centre - radiusAt(phi) * Math.sin(phi);
@@ -201,10 +205,10 @@ function buildRope(
   const limit = Math.max(total, KNOT_OFFSET + 1);
   const coilLen = clamp(coil, 0, limit);
 
-  const groups: RopeGroup[] = [];
-  let g = newGroup();
+  let groupIdx = 0;
+  let g = acquireGroup(groupIdx++);
 
-  let px = helixX(0); // tip: on the rope axis, on the floor
+  let px = helixX(0);
   let py = helixY(0);
   let ltx = 0;
   let lty = -1;
@@ -212,7 +216,7 @@ function buildRope(
   let done = false;
   let nextDark = CHEV_SPACING * 0.5;
   let nextLight = CHEV_SPACING;
-  let knot: Knot | null = null;
+  let hasKnot = false;
   g.path.push(px, py);
 
   const emit = (xIn: number, yIn: number, addPath: boolean) => {
@@ -222,7 +226,6 @@ function buildRope(
     let seg = Math.hypot(x - px, y - py);
     if (seg < 1e-4) return;
     if (m + seg >= limit) {
-      // The rope has a fixed length: clip the last step and stop.
       const f = (limit - m) / seg;
       x = px + (x - px) * f;
       y = py + (y - py) * f;
@@ -233,7 +236,13 @@ function buildRope(
     const tx = (x - px) / seg;
     const ty = (y - py) / seg;
     m += seg;
-    if (!knot && m >= KNOT_OFFSET) knot = { x, y, tx, ty };
+    if (!hasKnot && m >= KNOT_OFFSET) {
+      hasKnot = true;
+      sharedKnot.x = x;
+      sharedKnot.y = y;
+      sharedKnot.tx = tx;
+      sharedKnot.ty = ty;
+    }
     while (nextDark <= m) {
       g.dark.push(x, y, tx, ty);
       nextDark += CHEV_SPACING;
@@ -259,30 +268,35 @@ function buildRope(
     let y = helixY(phi);
     const seg = Math.hypot(x - px, y - py);
     if (m + seg > coilLen) {
-      const f = (coilLen - m) / seg; // clip so the pile holds exactly `coilLen` of rope
+      const f = (coilLen - m) / seg;
       x = px + (x - px) * f;
       y = py + (y - py) * f;
     }
     emit(x, y, true);
 
     if (phi >= turnEdge && m < coilLen - 1e-3 && !done) {
-      groups.push(g);
-      const tail = g.path.slice(-6); // overlap to hide the seam between groups
-      g = newGroup();
-      g.path.push(...tail);
+      const prevPath = g.path;
+      const len = prevPath.length;
+      const nextG = acquireGroup(groupIdx++);
+      for (let k = Math.max(0, len - 6); k < len; k++) {
+        nextG.path.push(prevPath[k]);
+      }
+      g = nextG;
       turnEdge += Math.PI * 2;
     }
   }
-  groups.push(g);
 
   /* 2) The rest of the rope: connector out of the pile, then straight up to the free top end. */
   let straightStartY = py;
   if (!done && m < limit - 1e-3) {
-    const tail = g.path.slice(-6);
-    g = newGroup();
-    g.path.push(...tail);
+    const prevPath = g.path;
+    const len = prevPath.length;
+    const nextG = acquireGroup(groupIdx++);
+    for (let k = Math.max(0, len - 6); k < len; k++) {
+      nextG.path.push(prevPath[k]);
+    }
+    g = nextG;
 
-    // For a tiny pile the connector is a plain straight line (no hook).
     const pull = CONNECT_PULL * smooth01(coilLen / 36);
     const sx = px;
     const sy = py;
@@ -305,12 +319,19 @@ function buildRope(
       }
     }
     g.path.push(px, py);
-    groups.push(g);
   }
 
-  const finalKnot: Knot =
-    (knot as Knot | null) ?? { x: px, y: py, tx: ltx, ty: lty };
-  return { groups, knot: finalKnot, topY: py, straightStartY };
+  if (!hasKnot) {
+    sharedKnot.x = px;
+    sharedKnot.y = py;
+    sharedKnot.tx = ltx;
+    sharedKnot.ty = lty;
+  }
+
+  sharedRopeShape.groupCount = groupIdx;
+  sharedRopeShape.topY = py;
+  sharedRopeShape.straightStartY = straightStartY;
+  return sharedRopeShape;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -349,10 +370,11 @@ export function RopeAngelScroll({
     /* ------------------------------ state ------------------------------ */
 
     let scroller: HTMLElement = getExplicitScroller() ?? getRootScroller();
+    let cachedRange = computeScrollRange(scroller);
     let trackHeight = track.clientHeight || window.innerHeight;
     let dpr = 1;
 
-    let targetProgress = readProgress(scroller);
+    let targetProgress = readProgressWithRange(scroller, cachedRange);
     let progress = targetProgress;
 
     let lastTop = scroller.scrollTop;
@@ -360,7 +382,6 @@ export function RopeAngelScroll({
     let velocity = 0;
 
     let stopTimer = 0;
-    let lastSyncTime = 0;
     let lastSignature = "";
     let revealed = false;
 
@@ -449,7 +470,7 @@ export function RopeAngelScroll({
 
       // ഇവിടെയാണ് ഞാൻ ആ കോയിൽ ആനിമേഷൻ കളയാൻ ചെയ്ത ഒരേയൊരു മാറ്റം:
       const currentTipY = Math.max(KNOT_OFFSET + 1, progress * floorY);
-      const total = currentTipY; 
+      const total = currentTipY;
       const coil = 0; // ഇത് 0 ആയതുകൊണ്ട് കയർ ഇനി ചുരുണ്ട് കൂടുല്ല!
 
       const signature = `${round2(coil)}|${round2(total)}|${round2(trackHeight)}`;
@@ -462,7 +483,7 @@ export function RopeAngelScroll({
         CANVAS_WIDTH - (COIL_RADIUS_BASE * 1.12 + ROPE_WIDTH / 2 + 2.5)
       );
 
-      const { groups, knot, topY, straightStartY } = buildRope(
+      const { groups, groupCount, knot, topY, straightStartY } = buildRope(
         coil,
         total,
         ropeX,
@@ -473,7 +494,9 @@ export function RopeAngelScroll({
       ctx.clearRect(0, 0, CANVAS_WIDTH, trackHeight);
 
       if (coil > 0.5) drawContactShadow(cx, floorY, clamp(coil / 40, 0, 1));
-      for (const group of groups) drawGroup(group);
+      for (let i = 0; i < groupCount; i++) {
+        drawGroup(groups[i]);
+      }
 
       // The free top end dissolves into nothing (only along the straight, hanging part).
       const fadeLength = clamp((straightStartY - topY) * 0.6, 0, TOP_FADE_MAX);
@@ -497,15 +520,8 @@ export function RopeAngelScroll({
 
     /* ------------------------------- ticker ----------------------------- */
 
-    const tick = (time: number, deltaMs: number) => {
+    const tick = (_time: number, deltaMs: number) => {
       const dt = clamp(deltaMs, 1, 50) / 1000;
-
-      if (time - lastSyncTime > 0.5) {
-        lastSyncTime = time;
-        const explicit = getExplicitScroller();
-        if (explicit && explicit !== scroller) scroller = explicit;
-        targetProgress = readProgress(scroller);
-      }
 
       // Feeding the pile is snappy; pulling the rope back up (uncoiling) is deliberately slower.
       const rate = targetProgress < progress ? UNCOIL_SMOOTHING : PROGRESS_SMOOTHING;
@@ -535,33 +551,35 @@ export function RopeAngelScroll({
     };
 
     const onScroll = (event: Event) => {
-      const explicit = getExplicitScroller();
       let next: HTMLElement | null = null;
 
-      if (explicit) {
-        if (event.target === explicit) next = explicit;
+      if (event.target === scroller) {
+        next = scroller;
+      } else if (scrollerSelector) {
+        const explicit = getExplicitScroller();
+        if (explicit && event.target === explicit) next = explicit;
       } else if (event.target === document) {
         next = getRootScroller();
-      } else if (event.target instanceof HTMLElement) {
-        if (event.target === scroller || isViewportSizedScroller(event.target)) {
-          next = event.target;
-        }
+      } else if (event.target instanceof HTMLElement && isViewportSizedScroller(event.target)) {
+        next = event.target;
       }
       if (!next) return;
 
       if (next !== scroller) {
         scroller = next;
-        lastTop = next.scrollTop;
+        cachedRange = computeScrollRange(scroller);
+        lastTop = scroller.scrollTop;
+      } else if (cachedRange <= 1) {
+        cachedRange = computeScrollRange(scroller);
       }
 
       const top = scroller.scrollTop;
-      const range = scroller.scrollHeight - scroller.clientHeight;
       const delta = top - lastTop;
       lastTop = top;
 
-      targetProgress = readProgress(scroller);
+      targetProgress = cachedRange > 1 ? clamp(top / cachedRange, 0, 1) : 0;
 
-      const overscroll = top < -1 || top > range + 1;
+      const overscroll = top < -1 || top > cachedRange + 1;
       if (delta === 0 || overscroll) return;
 
       deltaAccum += delta;
@@ -571,7 +589,10 @@ export function RopeAngelScroll({
     };
 
     const syncProgress = () => {
-      targetProgress = readProgress(scroller);
+      const explicit = getExplicitScroller();
+      if (explicit && explicit !== scroller) scroller = explicit;
+      cachedRange = computeScrollRange(scroller);
+      targetProgress = readProgressWithRange(scroller, cachedRange);
     };
 
     /* ------------------------------ wiring ------------------------------ */

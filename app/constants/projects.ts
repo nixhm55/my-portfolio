@@ -8,6 +8,18 @@ export const PROJECTS: Project[] = [
     url: "https://void-six-cyan.vercel.app",
   },
   {
+    title: "VOID WEB",
+    date: "    2026",
+    subtext: "The official interactive gateway to Void. A minimal, spatial web experience crafted to explore and get the app across every platform.",
+    url: "https://void-web-five.vercel.app",
+  },
+  {
+    title: "Agentic AI Workspace",
+    date: "    2026",
+    subtext: "A unified multi-model intelligence gateway with autonomous terminal execution, reasoning controls, and multimodal voice pipelines.",
+    url: "https://" + "void-ai-pink.vercel.app",
+  },
+  {
     title: "PORTFOLIOS",
     date: "    2026",
     subtext: "12 Portfolios. A curated showcase of animated, minimal, and expressive web designs built with fluid interactive motion.",

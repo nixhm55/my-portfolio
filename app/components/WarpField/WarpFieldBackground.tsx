@@ -83,6 +83,9 @@ export function WarpFieldBackground({ className = "", ...props }: WarpFieldBackg
     };
   }, []);
 
+  const hasCustomFilter =
+    options.hue !== 0 || options.saturation !== 1 || options.brightness !== 1;
+
   return (
     <div
       ref={hostRef}
@@ -102,7 +105,9 @@ export function WarpFieldBackground({ className = "", ...props }: WarpFieldBackg
           display: "block",
           width: "100%",
           height: "100%",
-          filter: `hue-rotate(${options.hue}deg) saturate(${options.saturation}) brightness(${options.brightness})`,
+          filter: hasCustomFilter
+            ? `hue-rotate(${options.hue}deg) saturate(${options.saturation}) brightness(${options.brightness})`
+            : undefined,
         }}
       />
     </div>

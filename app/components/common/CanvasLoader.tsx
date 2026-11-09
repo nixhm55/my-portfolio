@@ -45,29 +45,48 @@ const CanvasFadeIn = () => {
   return null;
 };
 
+const CanvasThemeEffects = ({
+  containerRef,
+  canvasRef,
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+}) => {
+  const backgroundColor = useThemeStore((state) => state.theme.color);
+
+  useEffect(() => {
+    document.body.style.backgroundColor = backgroundColor;
+
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'theme-color');
+      document.head.appendChild(meta);
+    }
+
+    const isLightMode = backgroundColor !== '#0a0a0a' && backgroundColor !== '#010101' && backgroundColor !== '#000000';
+    meta.setAttribute('content', isLightMode ? '#62c9fa' : backgroundColor);
+  }, [backgroundColor]);
+
+  useGSAP(() => {
+    gsap.to(containerRef.current, {
+      backgroundColor,
+      duration: 1,
+    });
+    gsap.to(canvasRef.current, {
+      backgroundColor,
+      duration: 1,
+      ...noiseOverlayStyle,
+    });
+  }, [backgroundColor]);
+
+  return null;
+};
+
 const CanvasLoader = (props: { children: React.ReactNode }) => {
   const ref = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const backgroundColor = useThemeStore((state) => state.theme.color);
   const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      document.body.style.backgroundColor = backgroundColor;
-
-      let meta = document.querySelector('meta[name="theme-color"]');
-      if (!meta) {
-        meta = document.createElement('meta');
-        meta.setAttribute('name', 'theme-color');
-        document.head.appendChild(meta);
-      }
-
-      const isLightMode = backgroundColor !== '#0a0a0a' && backgroundColor !== '#010101' && backgroundColor !== '#000000';
-      const safariColor = isLightMode ? '#62c9fa' : backgroundColor;
-
-      meta.setAttribute('content', safariColor);
-    }
-  }, [backgroundColor]);
 
   const canvasStyle: React.CSSProperties = useMemo(() => ({
     position: "absolute",
@@ -84,20 +103,9 @@ const CanvasLoader = (props: { children: React.ReactNode }) => {
     }),
   }), [mounted]);
 
-  useGSAP(() => {
-    gsap.to(ref.current, {
-      backgroundColor: backgroundColor,
-      duration: 1,
-    });
-    gsap.to(canvasRef.current, {
-      backgroundColor: backgroundColor,
-      duration: 1,
-      ...noiseOverlayStyle,
-    });
-  }, [backgroundColor]);
-
   return (
     <div className="h-[100dvh] wrapper relative overflow-hidden">
+      <CanvasThemeEffects containerRef={ref} canvasRef={canvasRef} />
       <CustomCursor />
       <RopeAngelScroll />
 
